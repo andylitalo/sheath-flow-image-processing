@@ -23,8 +23,8 @@ from scipy.stats import mode
 
 # User Parameters
 # data for video
-folder = '..\\DATA\\glyc_in_glyc\\' # folder containing videos
-fileString = 'sheath_glyc_glyc_0372_0002.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
+folder = '..\\..\\DATA\\glyc_in_glyc\\' # folder containing videos
+fileString = 'sheath_glyc_glyc_0372_0002_1.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
 maskDataFile = 'maskData_glyc_glyc_20180703.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
 # analysis parameters
@@ -40,7 +40,7 @@ showCounts = False # show counts of number of pixels with each value
 minSize = 250
 # saving parameters
 saveIm = False
-saveFolder = '..\\DATA\\glyc_in_glyc\\processed_images\\'
+saveFolder = '..\\..\\DATA\\glyc_in_glyc\\processed_images\\'
 
 
 ###############################################################################
