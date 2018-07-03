@@ -409,7 +409,8 @@ def get_contour_bw_im(imBin, showIm):
     nPtsCnt = int(4*lenChar)
     # generate continuous array of points of largest contour
     x,y = Fun.generate_polygon(cntMax[:,0,0], cntMax[:,0,1], nPtsCnt)
-    cntMaxZip = np.array([zip(x,y)],dtype=int)
+    xyPairs = list(zip(x,y))
+    cntMaxZip = np.array(xyPairs,dtype=int)
     # create image of contour
     imCnt = np.zeros_like(imBin,dtype='uint8')
     cv2.drawContours(imCnt, [cntMaxZip], -1, 255, 1)
