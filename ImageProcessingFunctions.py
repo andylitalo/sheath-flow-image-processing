@@ -503,9 +503,13 @@ def show_im(im, title, showCounts=False, values=None, counts=None):
         plt.subplot(122)
         plt.plot(values, counts)
         plt.title('pixel value counts')
+        plt.show()
+        plt.close()
     else:
         plt.imshow(im)
         plt.title(title)
+        plt.show()
+        plt.close()
 
 
 def subtract_images(frame,refFrame):

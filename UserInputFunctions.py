@@ -120,7 +120,7 @@ def get_rect_mask_data(im,maskFile,check=False):
     if they are acceptable. Returns True for 'yes' and False for 'no'.
     """
     try:
-        with open(maskFile) as f:
+        with open(maskFile, 'rb') as f:
             maskData = pkl.load(f)
     except:
         print('Mask file not found, please create it now.')
