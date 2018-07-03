@@ -497,7 +497,7 @@ def rotate_points(x,y,theta,center=[0,0],units='radians'):
     elif units == 'radians':
         pass
     else:
-        print 'Invalid input parameter for angle units! Assuming radians'
+        print('Invalid input parameter for angle units! Assuming radians')
     
     # Compute rotation matrix constants
     s = np.sin(theta)

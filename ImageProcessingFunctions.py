@@ -10,7 +10,7 @@ import numpy as np
 import cv2
 from scipy import ndimage
 import matplotlib.pyplot as plt
-import cPickle as pkl
+import pickle as pkl
 from skimage import filters
 import skimage.morphology
 from pandas import unique
@@ -42,7 +42,7 @@ def calculate_stream_width(im, left, right):
         is255 = col==255
         # if more saturated pixels than just the upper and lower bounds of the contour, stop analysis
         if np.sum(is255) > 2:
-            print 'Error: more than 2 entries = 255.'
+            print('Error: more than 2 entries = 255.')
             continue
         elif np.sum(is255) < 2:
             cutCols += [p]
@@ -57,11 +57,11 @@ def calculate_stream_width(im, left, right):
             streamWidthSqSum += streamWidth**2
     # print range of columns cut off by mask
     if len(cutCols) > 0:
-        print 'Error: part of contour cut out by mask, columns from ' + \
-        str(min(cutCols)) + ' to ' + str(max(cutCols))
+        print('Error: part of contour cut out by mask, columns from ' + \
+        str(min(cutCols)) + ' to ' + str(max(cutCols)))
 
    # divide sum by number of elements to calculate the mean width
-    print 'columns counted = ' + str(colCt)
+    print('columns counted = ' + str(colCt))
     if colCt == 0:
         streamWidthMean = 0
         streamWidthStDev = 0
@@ -264,14 +264,14 @@ def get_roi(im, roiLims, coordinateFormat='xy'):
     elif coordinateFormat=='rc':
         r1, r2, c1, c2 = roiLims
     else:
-        print 'unrecognized coordinateFormat in IPF.get_roi.'
+        print('unrecognized coordinateFormat in IPF.get_roi.')
         return []
     if len(im.shape)==3:
         return im[r1:r2,c1:c2,:]
     elif len(im.shape)==2:
         return im[r1:r2,c1:c2]
     else:
-        print 'image is in improper format; not 2 or 3 dimensional (IPF.get_roi).'
+        print('image is in improper format; not 2 or 3 dimensional (IPF.get_roi).')
         return []
 
 
@@ -337,7 +337,7 @@ def define_homography_matrix(image,hFile,scale=1.1):
     R = scale*Fun.get_distance(oldPoints[0,:],oldPoints[3,:])/2.0
     center = [np.mean(oldPoints[:,0]),np.mean(oldPoints[:,1])]
     t0 = Fun.get_angle([center[0]+10,center[1]],center,oldPoints[0])
-    print t0
+    print(str(t0))
     # Define the locatoins of the posts in the new image
     x,y = Fun.generate_circle(R,center,7,t0)
     imageCenter = [temp[1]/2.0,temp[0]/2.0]
@@ -389,7 +389,7 @@ def get_channel_index(channel, imageType='rgb'):
     elif imageType == 'bgr':
         channelDict = {'b':0, 'g':1, 'r':2}
     else:
-        print 'imageType ' + imageType + ' not recognized.'
+        print('imageType ' + imageType + ' not recognized.')
 
     return channelDict[channel]
 
@@ -400,12 +400,13 @@ def get_contour_bw_im(imBin, showIm):
     in the binary image given.
     """
     #find edge using contour finding
-    contours, hierarchy = cv2.findContours(imBin.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    _, contours, hierarchy = cv2.findContours(imBin.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     # return blank image if no contours
     if len(contours) == 0:
         return np.zeros_like(imBin,dtype='uint8')
     cntMax = sorted(contours, key=cv2.contourArea, reverse=True)[0] # get largest contour
-    nPtsCnt = int(4*np.sqrt(imBin.size)) # 4*length scale, length scale = sqrt num pixels
+    lenChar = np.sqrt(imBin.size) # length scale = sqrt num pixels
+    nPtsCnt = int(4*lenChar)
     # generate continuous array of points of largest contour
     x,y = Fun.generate_polygon(cntMax[:,0,0], cntMax[:,0,1], nPtsCnt)
     cntMaxZip = np.array([zip(x,y)],dtype=int)
@@ -534,7 +535,7 @@ def superimpose_bw_on_color(imColor, imBW, roiLims, channel, imageType='rgb',
     """
     # check if there is anything in the black and white image
     if np.sum(imBW) == 0:
-        print 'nothing in black and white image'
+        print('nothing in black and white image')
         return np.array([]), False
     # extract limits of region of interest
     if coordinateFormat == 'xy':
@@ -542,7 +543,7 @@ def superimpose_bw_on_color(imColor, imBW, roiLims, channel, imageType='rgb',
     elif coordinateFormat == 'rc':
         r1, r2, c1, c2 = roiLims
     else:
-        print 'unrecognized coordinate format; not xy (default) or rc.'
+        print('unrecognized coordinate format; not xy (default) or rc.')
     # hold bw image in new frame same size as color image but 1 channel deep
     imFullBW = np.zeros_like(imColor, 'uint8')[:,:,0]
     imFullBW[r1:r2,c1:c2] = imBW
@@ -592,7 +593,7 @@ def apply_butterworth_filter(image, cutoff, n):
     f = fft_image(image)
     # Parse filter parameters
     if (cutoff <= 0) or (cutoff > 0.5):
-        print 'cutoff frequency must be between (0 and 0.5]'
+        print('cutoff frequency must be between (0 and 0.5]')
         cutoff = 0.5
     n = np.uint8(n)
     # Create the filter
