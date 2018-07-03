@@ -3,6 +3,7 @@
 Created on Wed May 20 16:52:03 2015
 
 @author: John
+Collection of function definitions for use in image processing.
 """
 
 import numpy as np
