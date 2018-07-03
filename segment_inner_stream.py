@@ -4,9 +4,9 @@ Created on Wed Mar 21 17:44:10 2018
 
 @author: Andy
 
-NOTE: Must type "%matplotlib qt" into console to run file (this ensures that
-matplotlib windows open in a new window rather than inside the console output).
-Otherwise you will receive a "NotImplementedError."
+NOTE: Must type "%matplotlib qt" into console to run file in python(x,y)
+(this ensures that matplotlib windows open in a new window rather than inside
+the console output). Otherwise you will receive a "NotImplementedError."
 """
 
 # import packages
@@ -23,10 +23,10 @@ from scipy.stats import mode
 
 # User Parameters
 # data for video
-folder = '..\\DATA\\2018-07-02\\' # folder containing videos
-fileString = 'sheath_glyc_glyc_0372_0002.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg' 
+folder = '..\\DATA\\glyc_in_glyc\\' # folder containing videos
+fileString = 'sheath_glyc_glyc_0372_0002.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
-maskDataFile = 'maskData_glyc_glyc_20180702_2.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
+maskDataFile = 'maskData_glyc_glyc_20180703.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
 # analysis parameters
 meanFilter = True
 kernel = np.ones((5,5),np.float32)/25 # kernel for gaussian filter
@@ -40,13 +40,13 @@ showCounts = False # show counts of number of pixels with each value
 minSize = 250
 # saving parameters
 saveIm = False
-saveFolder = '..\\DATA\\2018-07-02\\processed_images\\'
+saveFolder = '..\\DATA\\glyc_in_glyc\\processed_images\\'
 
 
 ###############################################################################
 # Cleanup existing windows
 plt.close('all')
-   
+
 # Get file path
 pathToFiles = os.path.join(folder,fileString)
 # Create list of files to analyze
@@ -68,36 +68,36 @@ for i in range(nIms):
     # apply mean filter to each channel (rgb) of image
     for j in range(3):
         imCopy[:,:,j] = skimage.filters.rank.mean(imCopy[:,:,j], selem)
-    
+
     ### MASK IMAGE ###
     # user-defined mask for determining where to search
     maskData = UIF.get_rect_mask_data(imCopy, maskDataFile)
     mask = maskData['mask']
     roiLims = maskData['xyMinMax']
     roi = IPF.get_roi(imCopy, roiLims)
-    
+
     ### THRESHOLD BLUE CHANNEL AND NEGATIVE OF RED CHANNEL TO IDENTIFY STREAM ###
     imB = IPF.get_channel(roi,'b')
     imRNeg = IPF.get_negative(IPF.get_channel(roi,'r'))
-    imSeg = IPF.union_thresholded_ims(imB, imRNeg, bPct, rNegPct, showIm=showIm, 
+    imSeg = IPF.union_thresholded_ims(imB, imRNeg, bPct, rNegPct, showIm=showIm,
                           title1='Blue channel', title2='Negative of Red channel')
-        
+
     ### CLEAN UP BINARY IMAGE ###
     imSegFilled = IPF.clean_up_bw_im(imSeg, selem, minSize)
     if showIm:
         IPF.show_im(imSegFilled,'Filled holes of Segmented image')
-    
+
     ### TRACE CONTOUR OF LARGEST OBJECT ###
     imCntRoi = IPF.get_contour_bw_im(imSegFilled, showIm)
     imSuperimposed, ret = IPF.superimpose_bw_on_color(imCopy, imCntRoi, roiLims,channel='g')
     # place contour in full size image and skip images with no contour
     if not ret:
-        print 'no contour found in ' + imPath
+        print('no contour found in ' + imPath)
         continue
     # show final result
     if showIm:
         IPF.show_im(imSuperimposed,'Image with outline')
-        
+
     ### SAVE IMAGE ###
     # save image with edge overlayed
     if saveIm:
@@ -107,4 +107,4 @@ for i in range(nIms):
         saveName = saveFolder + fileName[:-4] + '.png'
         # save in save folder as .png rather than previous file extension
         cv2.imwrite(saveName, cv2.cvtColor(imSuperimposed, cv2.COLOR_RGB2BGR))
-        print 'Saved ' + str(i+1) + ' of ' + str(nIms) + ' images.'
+        print('Saved ' + str(i+1) + ' of ' + str(nIms) + ' images.')
