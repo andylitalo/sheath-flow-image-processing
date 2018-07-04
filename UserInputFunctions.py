@@ -35,6 +35,7 @@ def define_outer_edge(image,shapeType,message=''):
     if shapeType == 'circle':
         guess = np.shape(image)
         guess = (guess[1]/2,guess[0]/2)
+    # define dictionary of shapes --> shape adjectives
     shapeAdjDict = {'circle':'Circular','ellipse':'Ellipsular',
     'polygon':'Polygonal','rectangle':'Rectangular'}
     if shapeType in shapeAdjDict:
@@ -62,6 +63,7 @@ def define_outer_edge(image,shapeType,message=''):
         if len(pp) < 1:
             break
         else:
+            # extract tuple of (x,y) from list
             pp = pp[0]
         # Reset the plot
         plt.cla()
@@ -71,6 +73,7 @@ def define_outer_edge(image,shapeType,message=''):
         # Add the new point to the list of points and plot them
         x += [pp[0]]; y += [pp[1]]
         plt.plot(x,y,'r.',alpha=0.5)
+        plt.draw()
         # Perform fitting and drawing of fitted shape
         if shapeType == 'circle':
             if len(x) > 2:
@@ -81,6 +84,7 @@ def define_outer_edge(image,shapeType,message=''):
                 X,Y = Fun.generate_circle(R,center)
                 plt.plot(X,Y,'y-',alpha=0.5)
                 plt.plot(center[0],center[1],'yx',alpha=0.5)
+                plt.draw()
         elif shapeType == 'ellipse':
             if len(x) > 3:
                 xp = np.array(x)
@@ -89,8 +93,10 @@ def define_outer_edge(image,shapeType,message=''):
                 X,Y = Fun.generate_ellipse(R1,R2,center,theta)
                 plt.plot(X,Y,'y-',alpha=0.5)
                 plt.plot(center[0],center[1],'yx',alpha=0.5)
+                plt.draw()
         elif shapeType == 'polygon':
             plt.plot(x,y,'y-',alpha=0.5)
+            plt.draw()
         elif shapeType == 'rectangle':
             # need 2 points to define rectangle
             if len(x) == 2:
@@ -98,6 +104,7 @@ def define_outer_edge(image,shapeType,message=''):
                 X,Y = Fun.generate_rectangle(x, y)
                 # plot on figure
                 plt.plot(X,Y,'y-', alpha=0.5)
+                plt.draw()
 
 
     plt.close()

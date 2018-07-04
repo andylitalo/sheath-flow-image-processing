@@ -25,6 +25,7 @@ from scipy.stats import mode
 # data for video
 folder = '..\\..\\DATA\\glyc_in_glyc\\' # folder containing videos
 fileString = 'sheath_glyc_glyc_0372_0002_1.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
+bfFile = 'brightfield.jpg' #image of bright field, light but no flow
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
 maskDataFile = 'maskData_glyc_glyc_20180703.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
 # analysis parameters
@@ -47,6 +48,11 @@ saveFolder = '..\\..\\DATA\\glyc_in_glyc\\processed_images\\'
 # Cleanup existing windows
 plt.close('all')
 
+# Load bright field as reference for background subtraction
+bf = plt.imread(folder + bfFile)
+# apply gaussian filter
+bf = IPF.rgb_gauss(bf, selem)
+
 # Get file path
 pathToFiles = os.path.join(folder,fileString)
 # Create list of files to analyze
@@ -64,10 +70,11 @@ for i in range(nIms):
     if showCounts:
         values, counts = np.unique(im, return_counts=True)
         IPF.show_im(im, 'image', showCounts=showCounts, values=values, counts=counts)
-    imCopy = np.copy(im)
-    # apply mean filter to each channel (rgb) of image
-    for j in range(3):
-        imCopy[:,:,j] = skimage.filters.rank.mean(imCopy[:,:,j], selem)
+    # copy and apply mean filter to each channel (rgb) of image
+    imCopy = IPF.rgb_gauss(np.copy(im), selem)
+
+    ### BACKGROUND SUBTRACTION ###
+    imCopy = IPF.scale_by_brightfield(imCopy, bf)
 
     ### MASK IMAGE ###
     # user-defined mask for determining where to search

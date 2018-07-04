@@ -83,7 +83,7 @@ def clean_up_bw_im(imBin, selem, minSize):
     # remove fringes
     noFringes = skimage.morphology.binary_opening(filled, selem=selem)
     # remove small objects
-    imClean = skimage.morphology.remove_small_objects(noFringes, min_size=minSize)
+    imClean = skimage.morphology.remove_small_objects(noFringes.astype(bool), min_size=minSize)
 
     return imClean
 
@@ -311,6 +311,29 @@ def reduce_mask_radius(maskData,fraction):
 
     return maskData
 
+
+def rgb_gauss(im, selem):
+    """
+    applies gaussian filter to an rgb image (i.e., applies it
+    to each channel)
+    """
+    for i in range(3):
+        im[:,:,i] = filters.rank.mean(im[:,:,i], selem)
+    return im
+
+
+def scale_by_brightfield(im, bf):
+    """
+    scale pixels by value in brightfield
+    """
+    # convert to intensity map scaled to 1.0
+    im1 = im.astype(float) / 255.0
+    bf1 = bf.astype(float) / 255.0
+    # subtract
+    imCorrected = np.divide(im1, bf1)
+
+    return imCorrected
+
 def define_homography_matrix(image,hFile,scale=1.1):
     """
     Use an image of the wafer chuck from a given camera orientation to create
@@ -504,12 +527,10 @@ def show_im(im, title, showCounts=False, values=None, counts=None):
         plt.plot(values, counts)
         plt.title('pixel value counts')
         plt.show()
-        plt.close()
     else:
         plt.imshow(im)
         plt.title(title)
         plt.show()
-        plt.close()
 
 
 def subtract_images(frame,refFrame):
