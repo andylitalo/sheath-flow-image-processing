@@ -24,23 +24,23 @@ from scipy.stats import mode
 # User Parameters
 # data for video
 folder = '..\\..\\DATA\\glyc_in_glyc\\' # folder containing videos
-fileString = 'sheath_glyc_glyc_0372_0002_1.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
+fileString = 'sheath_glyc_glyc_0372_*.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
 bfFile = 'brightfield.jpg' #image of bright field, light but no flow
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
 maskDataFile = 'maskData_glyc_glyc_20180703.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
 # analysis parameters
 meanFilter = True
 kernel = np.ones((5,5),np.float32)/25 # kernel for gaussian filter
-bPct = 55#55 # percentile of pixels from blue channel kept glycerol: 45
-rNegPct = 50 # percentile of pixels from negative of red channel kept glycerol: 60
+bPct = 0#55 # percentile of pixels from blue channel kept glycerol: 45
+rNegPct = 80 # percentile of pixels from negative of red channel kept glycerol: 60
 # Structuring element is radius 2 disk
 selem = skimage.morphology.disk(10)
 nDilations = 0
-showIm = True
+showIm = False
 showCounts = False # show counts of number of pixels with each value
 minSize = 250
 # saving parameters
-saveIm = False
+saveIm = True
 saveFolder = '..\\..\\DATA\\glyc_in_glyc\\processed_images\\'
 
 
@@ -96,7 +96,7 @@ for i in range(nIms):
 
     ### TRACE CONTOUR OF LARGEST OBJECT ###
     imCntRoi = IPF.get_contour_bw_im(imSegFilled, showIm)
-    imSuperimposed, ret = IPF.superimpose_bw_on_color(imCopy, imCntRoi, roiLims,channel='g')
+    imSuperimposed, ret = IPF.superimpose_bw_on_color(im, imCntRoi, roiLims,channel='g')
     # place contour in full size image and skip images with no contour
     if not ret:
         print('no contour found in ' + imPath)

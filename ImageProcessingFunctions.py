@@ -317,9 +317,10 @@ def rgb_gauss(im, selem):
     applies gaussian filter to an rgb image (i.e., applies it
     to each channel)
     """
+    imCopy = np.copy(im)
     for i in range(3):
-        im[:,:,i] = filters.rank.mean(im[:,:,i], selem)
-    return im
+        imCopy[:,:,i] = filters.rank.mean(im[:,:,i], selem)
+    return imCopy
 
 
 def scale_by_brightfield(im, bf):
@@ -327,10 +328,13 @@ def scale_by_brightfield(im, bf):
     scale pixels by value in brightfield
     """
     # convert to intensity map scaled to 1.0
-    im1 = im.astype(float) / 255.0
     bf1 = bf.astype(float) / 255.0
-    # subtract
-    imCorrected = np.divide(im1, bf1)
+    # scale by bright field
+    imCorrected = np.divide(im,bf1)
+    # rescale result to have a max pixel value of 255
+    imCorrected *= 255.0/np.max(imCorrected)
+    # change type to uint8
+    imCorrected = imCorrected.astype('uint8')
 
     return imCorrected
 
@@ -559,6 +563,8 @@ def superimpose_bw_on_color(imColor, imBW, roiLims, channel, imageType='rgb',
     Only returns whether the operation was successful (there was something in imBW
     and it was superimposed) or not.
     """
+    # copy image so it can be edited
+    imColor = np.copy(imColor)
     # check if there is anything in the black and white image
     if np.sum(imBW) == 0:
         print('nothing in black and white image')
