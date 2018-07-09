@@ -24,23 +24,26 @@ from scipy.stats import mode
 # User Parameters
 # data for video
 folder = '..\\..\\DATA\\glyc_in_glyc\\' # folder containing videos
-fileString = 'sheath_glyc_glyc_0372_*.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
-bfFile = 'brightfield.jpg' #image of bright field, light but no flow
+fileString = 'sheath_glyc_glyc_0372_0000-08_d1_t1.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
+bfFile = 'sheath_glyc_glyc_0372_0000_d1_t1.jpg' #image of bright field, light but no flow
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
 maskDataFile = 'maskData_glyc_glyc_20180703.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
 # analysis parameters
 meanFilter = True
 kernel = np.ones((5,5),np.float32)/25 # kernel for gaussian filter
-bPct = 0#55 # percentile of pixels from blue channel kept glycerol: 45
-rNegPct = 80 # percentile of pixels from negative of red channel kept glycerol: 60
+#bPct = 0#55 # percentile of pixels from blue channel kept glycerol: 45
+#rNegPct = 80 # percentile of pixels from negative of red channel kept glycerol: 60
+rNegThresh = 160
+streamRGB = np.array([144,178,152]) # rgb values for predominant color in inner stream
+bkgdRGB = np.array([255,211,163])
 # Structuring element is radius 2 disk
 selem = skimage.morphology.disk(10)
 nDilations = 0
-showIm = False
-showCounts = False # show counts of number of pixels with each value
+showIm = True
+showCounts = True # show counts of number of pixels with each value
 minSize = 250
 # saving parameters
-saveIm = True
+saveIm = False
 saveFolder = '..\\..\\DATA\\glyc_in_glyc\\processed_images\\'
 
 
@@ -73,7 +76,7 @@ for i in range(nIms):
     # copy and apply mean filter to each channel (rgb) of image
     imCopy = IPF.rgb_gauss(np.copy(im), selem)
 
-    ### BACKGROUND SUBTRACTION ###
+    ### CORRECT BRIGHTFIELD INHOMOGENEITIES ###
     imCopy = IPF.scale_by_brightfield(imCopy, bf)
 
     ### MASK IMAGE ###
@@ -83,19 +86,29 @@ for i in range(nIms):
     roiLims = maskData['xyMinMax']
     roi = IPF.get_roi(imCopy, roiLims)
 
-    ### THRESHOLD BLUE CHANNEL AND NEGATIVE OF RED CHANNEL TO IDENTIFY STREAM ###
-    imB = IPF.get_channel(roi,'b')
+    ### THRESHOLD PROJECTION OF IMAGE ONTO STREAM COLOR ###
+    imProj = IPF.get_channel(roi,'custom',rgb=streamRGB, subtRGB=bkgdRGB)
+    IPF.show_im(imProj, title='projected image')
+    ### THRESHOLD NEGATIVE OF RED CHANNEL TO IDENTIFY STREAM ###
     imRNeg = IPF.get_negative(IPF.get_channel(roi,'r'))
-    imSeg = IPF.union_thresholded_ims(imB, imRNeg, bPct, rNegPct, showIm=showIm,
-                          title1='Blue channel', title2='Negative of Red channel')
+    ret, imInnerStream = cv2.threshold(imRNeg,rNegThresh,255,cv2.THRESH_BINARY)
+    IPF.show_im(imInnerStream, 'inner stream')
+    
+#    ### THRESHOLD BLUE CHANNEL AND NEGATIVE OF RED CHANNEL TO IDENTIFY STREAM ###
+#    imB = IPF.get_channel(roi,'b')
+#    imRNeg = IPF.get_negative(IPF.get_channel(roi,'r'))
+#    ret, imInnerStream = cv2.threshold(imRNeg,rNegThresh,255,cv2.THRESH_BINARY)
+#    IPF.show_im(imInnerStream, 'inner stream')
+#    imSeg = IPF.union_thresholded_ims(imB, imRNeg, bPct, rNegPct, showIm=showIm,
+#                          title1='Blue channel', title2='Negative of Red channel')
 
     ### CLEAN UP BINARY IMAGE ###
-    imSegFilled = IPF.clean_up_bw_im(imSeg, selem, minSize)
+    imFilled = IPF.clean_up_bw_im(imInnerStream, selem, minSize)
     if showIm:
-        IPF.show_im(imSegFilled,'Filled holes of Segmented image')
+        IPF.show_im(imFilled,'Filled holes of Inner Stream image')
 
     ### TRACE CONTOUR OF LARGEST OBJECT ###
-    imCntRoi = IPF.get_contour_bw_im(imSegFilled, showIm)
+    imCntRoi = IPF.get_contour_bw_im(imFilled, showIm)
     imSuperimposed, ret = IPF.superimpose_bw_on_color(im, imCntRoi, roiLims,channel='g')
     # place contour in full size image and skip images with no contour
     if not ret:

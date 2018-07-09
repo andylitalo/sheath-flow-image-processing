@@ -393,16 +393,45 @@ def define_homography_matrix(image,hFile,scale=1.1):
     return H
 
 
-def get_channel(im, channel, imageType='rgb'):
+def get_channel(im, channel, imageType='rgb', rgb=np.array([0,0,0]), 
+                subtRGB=np.array([0,0,0])):
     """
     Returns one channel of a color image (i.e., red, green, or blue of an rgb
     image). If image is assumed rgb by default. Channel should indicate the
     desired color by one lowercase letter (e.g., 'b' for the blue channel).
     """
     assert(is_color(im))
-    c = get_channel_index(channel, imageType)
-
-    return im[:,:,c]
+    # project image onto a custom color
+    if channel == 'custom':
+        scale = np.sqrt(np.sum(rgb**2))
+        # normalized projection vector
+        proj = rgb / scale
+        # if not subtracting another color, proceed with projection
+        if np.sum(subtRGB) == 0:
+            channel = np.dot(im, proj).astype('uint8')
+        # otherwise subtract the given color
+        else:
+            scaleSubt = np.sqrt(np.sum(subtRGB**2))
+            subt = subtRGB / scaleSubt
+            # scale cross product to be normalized to length 1
+            crossProd = np.cross(proj, subt)
+            crossProd /= np.sqrt(np.sum(crossProd**2))
+            # change of basis matrix to projected color, subtracted, and their cross product
+            B = np.stack([proj, subt, crossProd],1)
+            BInv = np.linalg.inv(B)
+            print(np.linalg.det(BInv))
+            # change basis of image's rgb values to new colors
+            imProj = np.matmul(im, BInv)
+            # get "red" (first) channel from projected image
+            channel = get_channel(imProj, 'r')
+            # set oversaturated pixels to saturation value
+            channel[channel > 255.0] = 255
+            channel = channel.astype('uint8')
+    else:
+        c = get_channel_index(channel, imageType)
+        channel = im[:,:,c]
+        
+    return channel
 
 
 def get_channel_index(channel, imageType='rgb'):
@@ -518,7 +547,7 @@ def scale_image(im,scale):
 
     return im
 
-def show_im(im, title, showCounts=False, values=None, counts=None):
+def show_im(im, title='', showCounts=False, values=None, counts=None):
     """
     Shows image in new figure with given title
     """
@@ -529,7 +558,7 @@ def show_im(im, title, showCounts=False, values=None, counts=None):
         plt.title(title)
         plt.subplot(122)
         plt.plot(values, counts)
-        plt.title('pixel value counts')
+        plt.title('pixel value counts', fontsize=24)
         plt.show()
     else:
         plt.imshow(im)
