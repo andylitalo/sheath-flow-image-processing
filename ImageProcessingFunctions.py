@@ -217,6 +217,25 @@ def dilate_mask(mask,size=6,iterations=2):
     return mask
 
 
+def get_auto_thresh(im, tol=1):
+    """
+    Uses "automatic thresholding" as described at
+    https://en.wikipedia.org/wiki/Thresholding_(image_processing)
+    """
+    thresh = np.mean(im)
+    ret, imThresh = cv2.threshold(im,thresh,255,cv2.THRESH_BINARY)
+    whiteMean = np.mean(im[imThresh])
+    blackMean = np.mean(im[np.logical_not(imThresh)])
+    newThresh = np.mean([whiteMean, blackMean])
+    while np.abs(newThresh-thresh) > tol:
+        thresh = newThresh
+        ret, imThresh = cv2.threshold(im,thresh,255,cv2.THRESH_BINARY)
+        whiteMean = np.mean(im[imThresh])
+        blackMean = np.mean(im[np.logical_not(imThresh)])
+        newThresh = np.mean([whiteMean, blackMean])
+    
+    return newThresh
+
 def get_auto_thresh_hist(im, frac=0.1):
     """
     returns a suggested value for the threshold to apply to the given image to

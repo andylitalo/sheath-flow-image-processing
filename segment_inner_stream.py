@@ -36,6 +36,7 @@ kernel = np.ones((5,5),np.float32)/25 # kernel for gaussian filter
 #rNegThresh = 160
 thresh = 85
 frac = 0.07 # percent of peak of histogram to cutoff with thresholding
+tol = 1 # number of pixels of change in threshold that are tolerated for convergence of automatic thresholding
 autoThresh = True # automatically determines threshold for the image if True
 streamRGB = np.array([144,178,152]) # rgb values for predominant color in inner stream
 bkgdRGB = np.array([255,211,163])
@@ -94,7 +95,8 @@ for i in range(nIms):
 #    ### THRESHOLD NEGATIVE OF RED CHANNEL TO IDENTIFY STREAM ###
 #    imRNeg = IPF.get_negative(IPF.get_channel(roi,'r'))
     if autoThresh:
-        thresh = IPF.get_auto_thresh_hist(imProj, frac=frac)
+#        thresh = IPF.get_auto_thresh_hist(imProj, frac=frac)
+        thresh = IPF.get_auto_thresh(imProj, tol=tol)
     ret, imInnerStream = cv2.threshold(imProj,thresh,255,cv2.THRESH_BINARY)
     if showIm:
         IPF.show_im(imInnerStream, 'inner stream')
