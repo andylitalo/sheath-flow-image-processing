@@ -78,7 +78,7 @@ def clean_up_bw_im(imBin, selem, minSize):
     """
     # close region in case of gaps
     closed = skimage.morphology.binary_closing(imBin, selem=selem)
-    # fill holes
+    # fill holes again
     filled = ndimage.morphology.binary_fill_holes(closed)
     # remove fringes
     noFringes = skimage.morphology.binary_opening(filled, selem=selem)
@@ -216,6 +216,24 @@ def dilate_mask(mask,size=6,iterations=2):
 
     return mask
 
+
+def get_auto_thresh_hist(im, frac=0.1):
+    """
+    returns a suggested value for the threshold to apply to the given image to
+    distinguish foreground from background/feature from noise.
+    """
+    # compute histogram for image
+    values, counts = np.unique(im, return_counts=True)
+    not255 = values!= 255
+    histMax = np.max(counts[not255])
+    # only consider values below fraction of peak above the histogram peak
+    belowFrac = counts < frac*histMax 
+    crossings = np.logical_not(np.multiply(belowFrac,np.roll(belowFrac,-1)))
+    lastCrossing = np.where(crossings)[0][-1]
+    # return the first value that dips below the fraction of the peak
+    thresh = values[lastCrossing]
+    
+    return thresh
 
 def get_edgeX(outlinedIm, channel='g', imageType='rgb'):
     """
@@ -419,7 +437,6 @@ def get_channel(im, channel, imageType='rgb', rgb=np.array([0,0,0]),
             # change of basis matrix to projected color, subtracted, and their cross product
             B = np.stack([proj, subt, crossProd],1)
             BInv = np.linalg.inv(B)
-            print(np.linalg.det(BInv))
             # change basis of image's rgb values to new colors
             imProj = np.matmul(im, BInv)
             # get "red" (first) channel from projected image
@@ -547,22 +564,29 @@ def scale_image(im,scale):
 
     return im
 
-def show_im(im, title='', showCounts=False, values=None, counts=None):
+def show_im(im, title='', showCounts=False, tFS=24):
     """
     Shows image in new figure with given title
     """
+    # open a new figure
     plt.figure()
     if showCounts:
+        # plot image
         plt.subplot(121)
         plt.imshow(im)
         plt.title(title)
+        # count pixel values present in image
+        values, counts = np.unique(im, return_counts=True)
+        # plot counts
         plt.subplot(122)
         plt.plot(values, counts)
-        plt.title('pixel value counts', fontsize=24)
+        plt.title('pixel value counts', fontsize=tFS)
+        # display image
         plt.show()
     else:
+        # plot image
         plt.imshow(im)
-        plt.title(title)
+        plt.title(title, fontsize=tFS)
         plt.show()
 
 
