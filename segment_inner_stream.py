@@ -24,7 +24,7 @@ from scipy.stats import mode
 # User Parameters
 # data for video
 folder = '..\\..\\DATA\\glyc_in_glyc\\' # folder containing videos
-fileString = 'sheath_glyc_glyc_0372_0001_d1_t1.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
+fileString = 'sheath_glyc_glyc_0372_*_d1_*.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
 bfFile = 'sheath_glyc_glyc_0372_0000_d1_t1.jpg' #image of bright field, light but no flow
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
 maskDataFile = 'maskData_glyc_glyc_20180703.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
@@ -42,11 +42,11 @@ streamRGB = np.array([144,178,152]) # rgb values for predominant color in inner 
 bkgdRGB = np.array([255,211,163])
 # Structuring element is radius 10 disk
 selem = skimage.morphology.disk(10)
-showIm = True
-showCounts = True # show counts of number of pixels with each value
+showIm = False
+showCounts = False # show counts of number of pixels with each value
 minSize = 250
 # saving parameters
-saveIm = False
+saveIm = True
 saveFolder = '..\\..\\DATA\\glyc_in_glyc\\processed_images\\'
 
 
@@ -96,7 +96,7 @@ for i in range(nIms):
 #    imRNeg = IPF.get_negative(IPF.get_channel(roi,'r'))
     if autoThresh:
 #        thresh = IPF.get_auto_thresh_hist(imProj, frac=frac)
-        thresh = IPF.get_auto_thresh_rows(imProj, frac=frac)
+        thresh = IPF.get_auto_thresh_hist(imProj, frac=frac)
     ret, imInnerStream = cv2.threshold(imProj,thresh,255,cv2.THRESH_BINARY)
     if showIm:
         IPF.show_im(imInnerStream, 'inner stream')
