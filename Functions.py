@@ -584,6 +584,23 @@ def interp_zeros(mat):
     return mat
  
 
+def longest_sequence(crossings, indicator=True):
+    """
+    Returns the index and length of the longest sequence of values between
+    crossings (crossings indicated by indicator, non-crossings indicated by 
+    any other value).
+    Essentially returns length of longest sequence of non-indicator values
+    and the index of the indicator value preceding it.
+    """
+    iIndicators = np.where(crossings==indicator)[0]
+    # length of sequences of between indicator values, -1 to exclude indicator value
+    seqLengths = np.diff(iIndicators)-1
+    # index of indicator preceding longest sequence of non-indicator values
+    iSeq = iIndicators[np.argmax(seqLengths)]
+    # length of longest sequence
+    lengthSeq = np.max(seqLengths)
+    
+    return iSeq, lengthSeq
 def power_law_fit(x, y, sigma):
     """
     Computes a power-law fit of given (x,y) points and uncertainties sigma, 

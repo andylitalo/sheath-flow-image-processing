@@ -236,6 +236,7 @@ def get_auto_thresh(im, tol=1):
     
     return newThresh
 
+
 def get_auto_thresh_hist(im, frac=0.1):
     """
     returns a suggested value for the threshold to apply to the given image to
@@ -249,7 +250,7 @@ def get_auto_thresh_hist(im, frac=0.1):
     belowFrac = counts < frac*histMax 
     # if threshold is too low, recurse with a larger fraction
     if np.sum(belowFrac) == 0:
-        return get_auto_thresh_rows(im, frac=(frac*1.2))
+        return get_auto_thresh_hist(im, frac=(frac*1.2))
     crossings = np.logical_xor(belowFrac,np.roll(belowFrac,-1))
     lastCrossing = np.where(crossings)[0][-1]
     # return the first value that dips below the fraction of the peak
@@ -258,15 +259,39 @@ def get_auto_thresh_hist(im, frac=0.1):
     return thresh
 
 
-def get_auto_thresh_plateau(im):
+def get_auto_thresh_plateau(im, frac=0.1, recMult=1.1):
     """
     returns a suggested value for the threshold to apply to the given image to
     distinguish foreground from background/feature from noise based on the 
     plateau of the histogram of pixel counts.
+    
+    frac = fraction of peak number of counts (excluding for saturated pixels)
+    recMult = value to increase frac by if too low per recursion
     """
     # compute histogram for mean values of rows of image
-    values, counts = np.unique(np.mean(im,1).astype('uint8'), return_counts=True)
+    values, counts = np.unique(im, return_counts=True)
+    # exclude saturated pixels
+    not255 = values!= 255
+    values = values[not255]
+    counts = counts[not255]
+    # find max of lower peak
+    histMax = np.max(counts)
+    iMax = np.argmax(counts)
+    # only consider values above max of lower peak
+    values = values[iMax:]
+    counts = counts[iMax:]
+    # only consider values below fraction of peak above the histogram peak
+    belowFrac = counts < frac*histMax 
+    # if threshold is too low, recurse with a larger fraction
+    if np.sum(belowFrac) == 0:
+        return get_auto_thresh_plateau(im, frac=(frac*recMult), recMult=recMult)
+    # locate crossings across threshold for number of counts
+    crossings = np.logical_xor(belowFrac,np.roll(belowFrac,-1))
+    iSeq, lengthSeq = Fun.longest_sequence(crossings)
+    # return the first value that dips below the fraction of the peak
+    thresh = values[iSeq]
     
+    return thresh
     
 def get_auto_thresh_rows(im, frac=0.1):
     """
