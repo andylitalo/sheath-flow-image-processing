@@ -14,6 +14,7 @@ import pickle as pkl
 from skimage import filters
 import skimage.morphology
 from pandas import unique
+from scipy.optimize import leastsq
 
 # Custom modules
 import Functions as Fun
@@ -244,8 +245,7 @@ def get_auto_thresh_hist(im, frac=0.1):
     """
     # compute histogram for image
     values, counts = np.unique(im, return_counts=True)
-    not255 = values!= 255
-    histMax = np.max(counts[not255])
+    histMax = np.max(counts)
     # only consider values below fraction of peak above the histogram peak
     belowFrac = counts < frac*histMax 
     # if threshold is too low, recurse with a larger fraction
@@ -259,6 +259,34 @@ def get_auto_thresh_hist(im, frac=0.1):
     return thresh
 
 
+def double_gaussian( x, params ):
+    (c1, mu1, sigma1, c2, mu2, sigma2) = params
+    res =   c1 * np.exp( - (x - mu1)**2.0 / (2.0 * sigma1**2.0) ) \
+          + c2 * np.exp( - (x - mu2)**2.0 / (2.0 * sigma2**2.0) )
+    return res
+
+def double_gaussian_fit(x, y, params ):
+    fit = double_gaussian( x, params )
+    return (fit - y)
+
+def auto_thresh_double_gaussian(im):
+    """
+    """
+    # compute histogram for mean values of rows of image
+    values, counts = np.unique(im, return_counts=True)
+    histMax = np.max(counts)
+    iMax = np.argmax(counts)
+    # TODO check if this is right
+    # calculate full width and half maximum of largest peak
+    fwhm1 = np.diff(np.where(Fun.get_crossings(counts, histMax/2.0))[0])
+    
+    # Least squares fit. Starting values found by inspection.
+    params0 =  [histMax,iMax,fwhm1/2.0,0.05*histMax,iMax*2.0,fwhm1/4.0]
+    fit = leastsq(lambda params:double_gaussian_fit(values, counts, params), params0)
+    
+    
+
+
 def get_auto_thresh_plateau(im, frac=0.1, recMult=1.1):
     """
     returns a suggested value for the threshold to apply to the given image to
@@ -270,23 +298,16 @@ def get_auto_thresh_plateau(im, frac=0.1, recMult=1.1):
     """
     # compute histogram for mean values of rows of image
     values, counts = np.unique(im, return_counts=True)
-    # exclude saturated pixels
-    not255 = values!= 255
-    values = values[not255]
-    counts = counts[not255]
     # find max of lower peak
     histMax = np.max(counts)
     iMax = np.argmax(counts)
     # only consider values above max of lower peak
     values = values[iMax:]
     counts = counts[iMax:]
-    # only consider values below fraction of peak above the histogram peak
-    belowFrac = counts < frac*histMax 
-    # if threshold is too low, recurse with a larger fraction
-    if np.sum(belowFrac) == 0:
-        return get_auto_thresh_plateau(im, frac=(frac*recMult), recMult=recMult)
     # locate crossings across threshold for number of counts
-    crossings = np.logical_xor(belowFrac,np.roll(belowFrac,-1))
+    crossings = Fun.get_crossings(counts, frac*histMax)
+    if np.sum(crossings) == 0:
+        return get_auto_thresh_plateau(im, frac=(frac*recMult), recMult=recMult)        
     iSeq, lengthSeq = Fun.longest_sequence(crossings)
     # return the first value that dips below the fraction of the peak
     thresh = values[iSeq]
@@ -300,8 +321,7 @@ def get_auto_thresh_rows(im, frac=0.1):
     """
     # compute histogram for mean values of rows of image
     values, counts = np.unique(np.mean(im,1).astype('uint8'), return_counts=True)
-    not255 = values!= 255
-    histMax = np.max(counts[not255])
+    histMax = np.max(counts)
     # only consider values below fraction of peak above the histogram peak
     belowFrac = counts < frac*histMax 
     if np.sum(belowFrac) == 0:
@@ -520,8 +540,10 @@ def get_channel(im, channel, imageType='rgb', rgb=np.array([0,0,0]),
             imProj = np.matmul(im, BInv)
             # get "red" (first) channel from projected image
             channel = get_channel(imProj, 'r')
-            # set oversaturated pixels to saturation value
-            channel[channel > 255.0] = 255
+            # scale image so max value is saturated (255)
+            maxVal = np.max(channel)
+            channel *= 255.0/maxVal
+            # change type to unsigned 8-bit int for images (0-255)
             channel = channel.astype('uint8')
     else:
         c = get_channel_index(channel, imageType)

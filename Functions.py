@@ -539,7 +539,17 @@ def get_flow_rates(fileName, hdr, innerConversion=1.0, outerConversion=1.0):
     outerFlowRate = actual_flow_rate(int(outerStr), outerConversion) # ul/min
     return innerFlowRate, outerFlowRate
     
-    
+ 
+def get_crossings(arr, thresh):
+    """
+    returns numpy array with True at each index where the input array arr crosses
+    the given value thresh
+    """
+    belowThresh = arr < thresh
+    crossings = np.logical_xor(belowThresh,np.roll(belowThresh,-1))
+    return crossings
+
+
 def get_save_name(prefix, RPM, Q, cond, ext):
     # prefix should include save folder plus beginning of save name
     # Create save name
