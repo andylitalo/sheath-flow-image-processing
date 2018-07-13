@@ -15,6 +15,7 @@ from skimage import filters
 import skimage.morphology
 from pandas import unique
 from scipy.optimize import leastsq
+from scipy.signal import medfilt
 
 # Custom modules
 import Functions as Fun
@@ -259,29 +260,46 @@ def get_auto_thresh_hist(im, frac=0.1):
     return thresh
 
 
-def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=2.5):
+def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=3.0):
     """
     """
     # compute histogram for mean values of rows of image
     values, counts = np.unique(im, return_counts=True)
-    histMax = np.max(counts)
-    iMax = np.argmax(counts)
-    # calculate full width and half maximum of tallest peak
+    counts = medfilt(counts, kernel_size=5)
+    # split pixels halfway
+    iLow = values < 125
+    # guess that means of two gaussians are in 1st and 3rd quartile boundaries of uint8 (0-255)
+    mu1G = 73.0
+    mu2G = 197.0
+    # guess amplitudes based on max in each half of plot
+    a1G = np.max(counts[iLow])
+    iMax1 = np.argmax(counts[iLow])
+    a2G = np.max(counts[np.logical_not(iLow)])
+    iMax2 = np.argmax(counts[np.logical_not(iLow)])
+    # guess standard deviations based on full width at half maximum
     # find indices of points where histogram crosses half maximum of tallest peak
-    iCrossing = np.where(Fun.get_crossings(counts, histMax/2.0))[0]
+    iCrossing1 = np.where(Fun.get_crossings(counts[iLow], a1G/2.0))[0]
     # index of crossing just below tallest peak (assumes no wild fluctuations)
-    iTallPeak = [i for i in range(len(iCrossing)-1) if iCrossing[i] < iMax and iCrossing[i+1] > iMax][0]
+    iPeak1 = [i for i in range(len(iCrossing1)-1) if iCrossing1[i] < iMax1 \
+              and iCrossing1[i+1] > iMax1][0]
     # full width at half maximum is difference in values at half max on either
     # side of peak
-    fwhm = values[iCrossing[iTallPeak+1]] - values[iCrossing[iTallPeak]]
+    valuesLow = values[iLow]
+    fwhm1 = valuesLow[iCrossing1[iPeak1+1]] - values[iCrossing1[iPeak1]]
+    # find indices of points where histogram crosses half maximum of tallest peak
+    iCrossing2 = np.where(Fun.get_crossings(counts[np.logical_not(iLow)], a2G/2.0))[0]
+    # index of crossing just below tallest peak (assumes no wild fluctuations)
+    iPeak2 = [i for i in range(len(iCrossing2)-1) if iCrossing2[i] < iMax2 \
+              and iCrossing2[i+1] > iMax2][0]
+    # full width at half maximum is difference in values at half max on either
+    # side of peak
+    valuesHigh = values[np.logical_not(iLow)]
+    fwhm2 = valuesHigh[iCrossing2[iPeak2+1]] - values[iCrossing2[iPeak2]]
     # guess for standard deviation is full width at half maximum of tallest peak
-    sG = fwhm/2.0
-    a1G = histMax
-    mu1G = 100.0
-    a2G = histMax
-    mu2G = 200.0
+    sG1 = fwhm1/2.0
+    sG2 = fwhm2/2.0
     # Least squares fit. Starting values found by inspection.
-    paramsG =  [a1G, mu1G, sG, a2G, mu2G, sG]
+    paramsG =  [a1G, mu1G, sG1, a2G, mu2G, sG2]
     print(paramsG)
     params, solved = leastsq(lambda params:Fun.double_gaussian_fit(values, counts, params), paramsG)
     if solved not in [1,2,3,4]:
@@ -295,8 +313,13 @@ def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=2.5):
     sLow = params[2+iLow]
     iHigh = 3*(mu1<mu2)
     muHigh = params[1+iHigh]
-    # if gaussians overlap, threshold excludes taller peak
-    if Fun.overlapping_gaussians(params, nSigma=nSigma):
+    sHigh = params[2+iHigh]
+    # if lower mean is below zero, cut out both peaks (cut a little more)
+    if muLow < 0:
+        print('lower mean is below zero.')
+        thresh = muHigh + (nSigma+1)*np.abs(sHigh)
+    # if gaussians overlap, threshold excludes lower-mean peak
+    elif Fun.overlapping_gaussians(params, nSigma=nSigma):
         print('gaussians overlap')
         thresh = muLow + nSigma*np.abs(sLow) # absolute value in case stdev is negative
     # if gaussians do not overlap, take intersection or point that excludes lower-mean peak

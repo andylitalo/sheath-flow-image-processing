@@ -24,8 +24,8 @@ from scipy.stats import mode
 # User Parameters
 # data for video
 folder = '..\\..\\DATA\\glyc_in_glyc\\' # folder containing videos
-fileString = 'sheath_glyc_glyc_0372_1000_d3_t*.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
-bfFile = 'brightfield_d3.jpg' #image of bright field, light but no flow
+fileString = 'sheath_glyc_glyc_0372_0004_d1_t3.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
+bfFile = 'brightfield_d1.jpg' #image of bright field, light but no flow
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
 maskDataFile = 'maskData_glyc_glyc_20180703.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
 # analysis parameters
