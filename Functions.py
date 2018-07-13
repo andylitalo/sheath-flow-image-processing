@@ -49,7 +49,18 @@ def convert_condition(condition):
         index2 = np.where(newConditionList == condition)[0]
         return oldConditionList[index2[0]]
         
-    
+  
+def double_gaussian( x, params ):
+    (c1, mu1, sigma1, c2, mu2, sigma2) = params
+    res =   c1 * np.exp( - (x - mu1)**2.0 / (2.0 * sigma1**2.0) ) \
+          + c2 * np.exp( - (x - mu2)**2.0 / (2.0 * sigma2**2.0) )
+    return res
+
+def double_gaussian_fit(x, y, params ):
+    fit = double_gaussian( x, params )
+    return (fit - y)
+
+
 def find_trial(fileName):
     """
     Returns the number of the trial of the given video based on the file name.
@@ -161,6 +172,32 @@ def film_thickness(scaling, RPM, Q, condition, rCrit, data):
             filmThickness = filmThickness_m / mPercm # [cm]
     return filmThickness # cm
 
+
+def gaussian_intersections(params):
+    """
+    Returns the intersection points of two gaussians, given by their parameters
+    """
+    # tolerance for imaginary component
+    tol = 1E-10
+    # magnitude, mean, stdev of first and second gaussians
+    (a1, mu1, s1, a2, mu2, s2) = params
+    # if negative amplitude or mean value outside uint8 range, no meaningful intersections
+    if a1 <= 0 or a2 <= 0 or mu1 < 0 or mu1 > 255 or mu2 < 0 or mu2 > 255:
+        return []
+    # coefficients of quadratic equation whose solution gives intersection points
+    a = -1/(2.0*s1**2) + 1/(2.0*s2**2)
+    b = mu1/s1**2 - mu2/s2**2
+    c = np.log(a1/a2) - mu1**2/(2.0*s1**2) + mu2**2/(2.0*s2**2)
+    # solutions of quadratic equation
+    x1 = (-b + np.sqrt(b**2 - 4*a*c))/(2.0*a)
+    x2 = (-b - np.sqrt(b**2 - 4*a*c))/(2.0*a)
+    # if result is complex, no intersection points
+    if np.abs(np.imag(x1)) > tol:
+        return []
+    # otherwise remove residual imaginary components
+    else:
+        return np.real(x1), np.real(x2)
+    
     
 def generate_circle(R,center,N=100,t0=0.0,t1=2.0*np.pi):
     """
@@ -611,6 +648,17 @@ def longest_sequence(crossings, indicator=True):
     lengthSeq = np.max(seqLengths)
     
     return iSeq, lengthSeq
+
+
+def overlapping_gaussians(params, nSigma=2.0):
+    """
+    Returns True if Gaussians are overlapping, false if not
+    """
+    (a1, mu1, s1, a2, mu2, s2) = params
+    muDiff = np.abs(mu1-mu2)
+    return bool(muDiff < nSigma*max(s1,s2))
+
+
 def power_law_fit(x, y, sigma):
     """
     Computes a power-law fit of given (x,y) points and uncertainties sigma, 

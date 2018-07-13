@@ -234,7 +234,7 @@ def get_auto_thresh(im, tol=1):
         whiteMean = np.mean(im[imThresh])
         blackMean = np.mean(im[np.logical_not(imThresh)])
         newThresh = np.mean([whiteMean, blackMean])
-    
+
     return newThresh
 
 
@@ -247,7 +247,7 @@ def get_auto_thresh_hist(im, frac=0.1):
     values, counts = np.unique(im, return_counts=True)
     histMax = np.max(counts)
     # only consider values below fraction of peak above the histogram peak
-    belowFrac = counts < frac*histMax 
+    belowFrac = counts < frac*histMax
     # if threshold is too low, recurse with a larger fraction
     if np.sum(belowFrac) == 0:
         return get_auto_thresh_hist(im, frac=(frac*1.2))
@@ -255,44 +255,93 @@ def get_auto_thresh_hist(im, frac=0.1):
     lastCrossing = np.where(crossings)[0][-1]
     # return the first value that dips below the fraction of the peak
     thresh = values[lastCrossing]
-    
+
     return thresh
 
 
-def double_gaussian( x, params ):
-    (c1, mu1, sigma1, c2, mu2, sigma2) = params
-    res =   c1 * np.exp( - (x - mu1)**2.0 / (2.0 * sigma1**2.0) ) \
-          + c2 * np.exp( - (x - mu2)**2.0 / (2.0 * sigma2**2.0) )
-    return res
-
-def double_gaussian_fit(x, y, params ):
-    fit = double_gaussian( x, params )
-    return (fit - y)
-
-def auto_thresh_double_gaussian(im):
+def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=2.5):
     """
     """
     # compute histogram for mean values of rows of image
     values, counts = np.unique(im, return_counts=True)
     histMax = np.max(counts)
     iMax = np.argmax(counts)
-    # TODO check if this is right
-    # calculate full width and half maximum of largest peak
-    fwhm1 = np.diff(np.where(Fun.get_crossings(counts, histMax/2.0))[0])
-    
+    # calculate full width and half maximum of tallest peak
+    # find indices of points where histogram crosses half maximum of tallest peak
+    iCrossing = np.where(Fun.get_crossings(counts, histMax/2.0))[0]
+    # index of crossing just below tallest peak (assumes no wild fluctuations)
+    iTallPeak = [i for i in range(len(iCrossing)-1) if iCrossing[i] < iMax and iCrossing[i+1] > iMax][0]
+    # full width at half maximum is difference in values at half max on either
+    # side of peak
+    fwhm = values[iCrossing[iTallPeak+1]] - values[iCrossing[iTallPeak]]
+    # guess for standard deviation is full width at half maximum of tallest peak
+    sG = fwhm/2.0
+    a1G = histMax
+    mu1G = 100.0
+    a2G = histMax
+    mu2G = 200.0
     # Least squares fit. Starting values found by inspection.
-    params0 =  [histMax,iMax,fwhm1/2.0,0.05*histMax,iMax*2.0,fwhm1/4.0]
-    fit = leastsq(lambda params:double_gaussian_fit(values, counts, params), params0)
+    paramsG =  [a1G, mu1G, sG, a2G, mu2G, sG]
+    print(paramsG)
+    params, solved = leastsq(lambda params:Fun.double_gaussian_fit(values, counts, params), paramsG)
+    if solved not in [1,2,3,4]:
+        print('double gaussian least squares not solved in IPF.get_auto_thresh_double_gaussian.')
+    # extract parameters and assign them to the taller and smaller peaks accordingly
+    (a1, mu1, s1, a2, mu2, s2) = params
+    print(params)
+    # find tallest peak by offsetting by 3 if a2 is larger peak than a1
+    iTall = 3*(a2>a1)
+    muTall = params[1+iTall]
+    sTall = params[2+iTall]
+    # find lower-mean peak by offsetting by 3 if mu1 > mu2
+    iLow = 3*(mu1>mu2)
+    muLow = params[1+iLow]
+    sLow = params[2+iLow]
+    iHigh = 3*(mu1<mu2)
+    muHigh = params[1+iHigh]
+    # if gaussians overlap, threshold excludes taller peak
+    if Fun.overlapping_gaussians(params, nSigma=nSigma):
+        print('gaussians overlap')
+        thresh = muTall + nSigma*sTall
+    # if gaussians do not overlap, take intersection or point that excludes lower-mean peak
+    else:
+        # find intersection points
+        valsIntersection = np.array(Fun.gaussian_intersections(params)) 
+        # find intersections in between means
+        iBetween = np.logical_and(valsIntersection < muHigh, valsIntersection > muLow)
+        valsBetween = valsIntersection[iBetween]
+        print(valsBetween)
+        # if no intersection, then threshold is two stdevs above lower mean
+        if len(valsBetween) == 0:
+            thresh = muLow + nSigma*sLow
+            print('no intersection between means')
+        else:
+            # threshold is larger of intersection between peaks of two gaussians
+            thresh = np.max(valsBetween)
+            print('threshold is at intersection')
+    # plot data, fit and threshold if desired
+    if showPlot:
+        plt.figure()
+        plt.plot(values, counts, label='data')
+        yGauss = Fun.double_gaussian(values, params)
+        plt.plot(values, yGauss, label='double gauss fit')
+        yLim = plt.ylim()
+        plt.plot(np.array([thresh, thresh]), yLim, 'r--', label='thresh')
+        plt.legend(loc='best')
+        plt.xlabel('values')
+        plt.ylabel('counts')
+        plt.title('comparing counts of pixel values to double gaussian fit')
     
-    
+    return int(thresh)
+
 
 
 def get_auto_thresh_plateau(im, frac=0.1, recMult=1.1):
     """
     returns a suggested value for the threshold to apply to the given image to
-    distinguish foreground from background/feature from noise based on the 
+    distinguish foreground from background/feature from noise based on the
     plateau of the histogram of pixel counts.
-    
+
     frac = fraction of peak number of counts (excluding for saturated pixels)
     recMult = value to increase frac by if too low per recursion
     """
@@ -307,13 +356,13 @@ def get_auto_thresh_plateau(im, frac=0.1, recMult=1.1):
     # locate crossings across threshold for number of counts
     crossings = Fun.get_crossings(counts, frac*histMax)
     if np.sum(crossings) == 0:
-        return get_auto_thresh_plateau(im, frac=(frac*recMult), recMult=recMult)        
+        return get_auto_thresh_plateau(im, frac=(frac*recMult), recMult=recMult)
     iSeq, lengthSeq = Fun.longest_sequence(crossings)
     # return the first value that dips below the fraction of the peak
     thresh = values[iSeq]
-    
+
     return thresh
-    
+
 def get_auto_thresh_rows(im, frac=0.1):
     """
     returns a suggested value for the threshold to apply to the given image to
@@ -323,7 +372,7 @@ def get_auto_thresh_rows(im, frac=0.1):
     values, counts = np.unique(np.mean(im,1).astype('uint8'), return_counts=True)
     histMax = np.max(counts)
     # only consider values below fraction of peak above the histogram peak
-    belowFrac = counts < frac*histMax 
+    belowFrac = counts < frac*histMax
     if np.sum(belowFrac) == 0:
         return get_auto_thresh_rows(im, frac=(frac*1.2))
     # identify when the histogram crosses the given fraction of the histogram peak
@@ -331,7 +380,7 @@ def get_auto_thresh_rows(im, frac=0.1):
     lastCrossing = np.where(crossings)[0][-1]
     # return the first value that dips below the fraction of the peak
     thresh = values[lastCrossing]
-    
+
     return thresh
 
 def get_edgeX(outlinedIm, channel='g', imageType='rgb'):
@@ -510,7 +559,7 @@ def define_homography_matrix(image,hFile,scale=1.1):
     return H
 
 
-def get_channel(im, channel, imageType='rgb', rgb=np.array([0,0,0]), 
+def get_channel(im, channel, imageType='rgb', rgb=np.array([0,0,0]),
                 subtRGB=np.array([0,0,0])):
     """
     Returns one channel of a color image (i.e., red, green, or blue of an rgb
@@ -548,7 +597,7 @@ def get_channel(im, channel, imageType='rgb', rgb=np.array([0,0,0]),
     else:
         c = get_channel_index(channel, imageType)
         channel = im[:,:,c]
-        
+
     return channel
 
 
