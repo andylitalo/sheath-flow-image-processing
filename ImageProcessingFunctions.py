@@ -289,10 +289,6 @@ def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=2.5):
     # extract parameters and assign them to the taller and smaller peaks accordingly
     (a1, mu1, s1, a2, mu2, s2) = params
     print(params)
-    # find tallest peak by offsetting by 3 if a2 is larger peak than a1
-    iTall = 3*(a2>a1)
-    muTall = params[1+iTall]
-    sTall = params[2+iTall]
     # find lower-mean peak by offsetting by 3 if mu1 > mu2
     iLow = 3*(mu1>mu2)
     muLow = params[1+iLow]
@@ -302,7 +298,7 @@ def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=2.5):
     # if gaussians overlap, threshold excludes taller peak
     if Fun.overlapping_gaussians(params, nSigma=nSigma):
         print('gaussians overlap')
-        thresh = muTall + nSigma*sTall
+        thresh = muLow + nSigma*np.abs(sLow) # absolute value in case stdev is negative
     # if gaussians do not overlap, take intersection or point that excludes lower-mean peak
     else:
         # find intersection points

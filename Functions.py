@@ -568,11 +568,12 @@ def get_flow_rates(fileName, hdr, innerConversion=1.0, outerConversion=1.0):
     iDash = fileName.find('-')
     # dash present indicates decimal point in inner flow rate
     if iDash!=-1:
+        innerConversion = 1/100.0
         innerStr = fileName[iDash+1:iDash+3]
-        innerFlowRate = actual_flow_rate(int(innerStr)/100.0, innerConversion)
+        innerFlowRate = actual_flow_rate(int(innerStr), innerConversion)
     else:
         innerStr = fileName[i+5:i+9]
-        innerFlowRate = actual_flow_rate(int(innerStr)/10, innerConversion) # ul/min
+        innerFlowRate = actual_flow_rate(int(innerStr), innerConversion) # ul/min
     outerFlowRate = actual_flow_rate(int(outerStr), outerConversion) # ul/min
     return innerFlowRate, outerFlowRate
     

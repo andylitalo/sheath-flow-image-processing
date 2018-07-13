@@ -24,13 +24,13 @@ import ImageProcessingFunctions as IPF
 import UserInputFunctions as UIF
 
 # User parameters
-folder = '..\\..\\DATA\\glyc_in_glyc\\processed_images\\'
+folder = '..\\..\\DATA\\glyc_in_glyc\\scan_thresh\\'
 fileString = 'sheath_glyc_glyc_0372_*.png' #'sheath_cap_0760*.png' # filestring of videos to analyze # glyc: 'sheath_cap_glyc_0100_*.png'
 hdr = 'sheath_glyc_glyc_' #'sheath_cap_' # header of filename, including "_" # glyc: 'sheath_cap_glyc_'
 border = 2 # number of pixels from edge of outline to start measuring width
 widthCapMicron = 800 # inner diameter of capillary in um
 outerConversion = 1 # conversion to get actual inner flowrate
-pixPerMicron = 0 # pixels per micron in image; 1.4 for water, 1.475 for glyc; set to 0 to calculate from image by clicking
+pixPerMicron = 1.42 # pixels per micron in image; 1.42 for glyc in glyc; 1.4 for water, 1.475 for glyc; set to 0 to calculate from image by clicking
 uncertainty = 15 # pixels of uncertainty in stream width
 channel = 'g' # channel containing outline of stream (saturated)
 eps = 0.1 # small parameter determining meaning of <<
