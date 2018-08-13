@@ -4,7 +4,7 @@ Created on Wed Mar 21 17:44:10 2018
 
 @author: Andy
 
-NOTE: Must type "%matplotlib qt" into console to run file in python(x,y)
+NOTE: Must type "%matplotlib qt" into console to run file in Spyder
 (this ensures that matplotlib windows open in a new window rather than inside
 the console output). Otherwise you will receive a "NotImplementedError."
 """
@@ -23,34 +23,27 @@ from scipy.stats import mode
 
 # User Parameters
 # data for video
-folder = '..\\..\\DATA\\glyc_in_glyc\\' # folder containing videos
-fileString = 'sheath_glyc_glyc_0372_0200_d1_t1.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
-bfFile = 'brightfield_d1.jpg' #image of bright field, light but no flow
+folder = '..\\..\\DATA\\swagelok\\' # folder containing videos
+fileString = 'swagelok_sheath_0230_*_3_*.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
+bfFile = 'brightfield_3.jpg' #image of bright field, light but no flow
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
-maskDataFile = 'maskData_glyc_glyc_20180703.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
+maskDataFile = 'maskData_swagelok_20180726.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
 # analysis parameters
 meanFilter = True
 kernel = np.ones((5,5),np.float32)/25 # kernel for gaussian filter
-#bPct = 0#55 # percentile of pixels from blue channel kept glycerol: 45
-#rNegPct = 80 # percentile of pixels from negative of red channel kept glycerol: 60
-#rNegThresh = 160
-#thresh = 214
-threshWindow = 0 # number of values above and below threshold to compute
-skip = 5
-#frac = 0.03 # percent of peak of histogram to cutoff with thresholding
-#tol = 1 # number of pixels of change in threshold that are tolerated for convergence of automatic thresholding
-autoThresh = True # automatically determines threshold for the image if True
+threshWindow = 30 # number of values above and below threshold to compute
+skip = 10
 # TODO automate selection of these colors
 streamRGB = np.array([144,178,152]) # rgb values for predominant color in inner stream
 bkgdRGB = np.array([255,211,163])
 # Structuring element is radius 10 disk
 selem = skimage.morphology.disk(10)
-showIm = True
-showCounts = True # show counts of number of pixels with each value
-minSize = 10000
+showIm = False
+showCounts = False # show counts of number of pixels with each value
+minSize = 10000 # minimum number of pixels to constitute part of image
 # saving parameters
-saveIm = False
-saveFolder = '..\\..\\DATA\\glyc_in_glyc\\scan_thresh\\'
+saveIm = True
+saveFolder = '..\\..\\DATA\\swagelok\\processed_images\\'
 
 
 ###############################################################################
@@ -98,13 +91,10 @@ for i in range(nIms):
     imProj = filters.rank.mean(imProj, selem)
     if showCounts:
         IPF.show_im(imProj, title='projected image', showCounts=showCounts)
-#    ### THRESHOLD NEGATIVE OF RED CHANNEL TO IDENTIFY STREAM ###
-#    imRNeg = IPF.get_negative(IPF.get_channel(roi,'r'))
-    if autoThresh:
-#        thresh = IPF.get_auto_thresh_hist(imProj, frac=frac)
-        thresh = IPF.get_auto_thresh_double_gaussian(imProj, showPlot=showIm)
-#        thresh = IPF.get_auto_thresh_plateau(imProj, frac=frac)
-    
+        
+#    ### CALCULATE GUESS FOR THRESHOLD ###
+    thresh = IPF.get_auto_thresh_double_gaussian(imProj, showPlot=showIm)
+#       
     ### LOOP THROUGH DIFFERENT VALUES OF THRESHOLD NEAR COMPUTED VALUE ###
     for thr in range(thresh-threshWindow, thresh+threshWindow+1,skip):
         ret, imInnerStream = cv2.threshold(imProj,thr,255,cv2.THRESH_BINARY)

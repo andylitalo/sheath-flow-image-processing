@@ -14,7 +14,7 @@ import pickle as pkl
 from skimage import filters
 import skimage.morphology
 from pandas import unique
-from scipy.optimize import leastsq
+from scipy.optimize import least_squares
 from scipy.signal import medfilt
 
 # Custom modules
@@ -263,57 +263,81 @@ def get_auto_thresh_hist(im, frac=0.1):
 def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=3.0):
     """
     """
-    # compute histogram for mean values of rows of image
+    # collect counts of pixel values for histogram
     values, counts = np.unique(im, return_counts=True)
-    counts = medfilt(counts, kernel_size=5)
-    # split pixels halfway
-    iLow = values < 125
-    # guess that means of two gaussians are in 1st and 3rd quartile boundaries of uint8 (0-255)
-    mu1G = 73.0
-    mu2G = 197.0
+    # apply median filter to counts for smoother histogram, easier to process
+    counts = medfilt(counts, kernel_size=5) 
+    # find max value with non-negligible amount of counts (above noise)
+    maxCt = np.max(counts)
+    # find points of crossing 10% of max counts
+    # TODO no magic numbers!
+    cr = np.where(Fun.get_crossings(counts, 0.01*maxCt))[0]
+    # max value is last such crossing
+    maxVal = cr[-1]
+    # split pixels to those with values above and below half of max value
+    inds1 = values < maxVal/2.0
+    inds2 = np.logical_not(inds1)
+    # split values and counts into high and low
+    values1 = values[inds1]
+    counts1 = counts[inds1]
+    values2 = values[inds2]
+    counts2 = counts[inds2]
+    # guess for gaussian means (1st and 3rd quartile boundaries of uint8 (0-255))
+    mu1G = maxVal/4.0
+    mu2G = 3*maxVal/4.0
     # guess amplitudes based on max in each half of plot
-    a1G = np.max(counts[iLow])
-    iMax1 = np.argmax(counts[iLow])
-    a2G = np.max(counts[np.logical_not(iLow)])
-    iMax2 = np.argmax(counts[np.logical_not(iLow)])
-    # guess standard deviations based on full width at half maximum
+    a1G = np.max(counts1)
+    iMax1 = np.argmax(counts1)
+    a2G = np.max(counts2)
+    iMax2 = np.argmax(counts2)
+
+    ### guess standard deviations based on full width at half maximum ###
     # find indices of points where histogram crosses half maximum of tallest peak
-    iCrossing1 = np.where(Fun.get_crossings(counts[iLow], a1G/2.0))[0]
-    # index of crossing just below tallest peak (assumes no wild fluctuations)
-    iPeak1 = [i for i in range(len(iCrossing1)-1) if iCrossing1[i] < iMax1 \
+    iCrossing1 = np.where(Fun.get_crossings(counts1, a1G/2.0))[0]
+    # append max and minimum values to indices of crossings for edge cases
+    iCrossing1 = np.concatenate((np.array([0]), iCrossing1,np.array([len(values1)-1])))
+    print('inds1 = ' + str(inds1))
+    print('iMax1 = ' + str(iMax1))
+    print('iCrossing1 = ' + str(iCrossing1))
+    # index of crossing immediately before peak (assumes no wild fluctuations)
+    iPeak1 = [i for i in range(len(iCrossing1)-1) if iCrossing1[i] <= iMax1 \
               and iCrossing1[i+1] > iMax1][0]
     # full width at half maximum is difference in values at half max on either
     # side of peak
-    valuesLow = values[iLow]
-    fwhm1 = valuesLow[iCrossing1[iPeak1+1]] - values[iCrossing1[iPeak1]]
+    fwhm1 = values1[iCrossing1[iPeak1+1]] - values1[iCrossing1[iPeak1]]
+    
     # find indices of points where histogram crosses half maximum of tallest peak
-    iCrossing2 = np.where(Fun.get_crossings(counts[np.logical_not(iLow)], a2G/2.0))[0]
+    iCrossing2 = np.where(Fun.get_crossings(counts2, a2G/2.0))[0]
+    # append max and minimum values to indices of crossings for edge cases
+    iCrossing2 = np.concatenate((np.array([0]), iCrossing2,np.array([len(values2)-1])))
     # index of crossing just below tallest peak (assumes no wild fluctuations)
-    iPeak2 = [i for i in range(len(iCrossing2)-1) if iCrossing2[i] < iMax2 \
+    iPeak2 = [i for i in range(len(iCrossing2)-1) if iCrossing2[i] <= iMax2 \
               and iCrossing2[i+1] > iMax2][0]
     # full width at half maximum is difference in values at half max on either
     # side of peak
-    valuesHigh = values[np.logical_not(iLow)]
-    fwhm2 = valuesHigh[iCrossing2[iPeak2+1]] - values[iCrossing2[iPeak2]]
+    fwhm2 = values2[iCrossing2[iPeak2+1]] - values2[iCrossing2[iPeak2]]
+    
     # guess for standard deviation is full width at half maximum of tallest peak
     sG1 = fwhm1/2.0
     sG2 = fwhm2/2.0
+    
     # Least squares fit. Starting values found by inspection.
-    paramsG =  [a1G, mu1G, sG1, a2G, mu2G, sG2]
-    print(paramsG)
-    params, solved = leastsq(lambda params:Fun.double_gaussian_fit(values, counts, params), paramsG)
-    if solved not in [1,2,3,4]:
-        print('double gaussian least squares not solved in IPF.get_auto_thresh_double_gaussian.')
+    paramsG =  np.array([a1G, mu1G, sG1, a2G, mu2G, sG2])
+    result = least_squares(lambda params:Fun.double_gaussian_fit(values, \
+                             counts, params), paramsG, bounds=(np.array([0,0,0,0,0,0]),\
+                               np.array([np.inf, 255, 255, np.inf, 255, 255])))
+    params = result.x
+    # print termination reason
+    print(result.message)
     # extract parameters and assign them to the taller and smaller peaks accordingly
     (a1, mu1, s1, a2, mu2, s2) = params
-    print(params)
     # find lower-mean peak by offsetting by 3 if mu1 > mu2
-    iLow = 3*(mu1>mu2)
-    muLow = params[1+iLow]
-    sLow = params[2+iLow]
-    iHigh = 3*(mu1<mu2)
-    muHigh = params[1+iHigh]
-    sHigh = params[2+iHigh]
+    offsetLow = 3*(mu1>mu2)
+    muLow = params[1+offsetLow]
+    sLow = params[2+offsetLow]
+    offsetHigh = 3*(mu1<mu2)
+    muHigh = params[1+offsetHigh]
+    sHigh = params[2+offsetHigh]
     # if lower mean is below zero, cut out both peaks (cut a little more)
     if muLow < 0:
         print('lower mean is below zero.')

@@ -22,6 +22,7 @@ import skimage.feature
 from scipy import ndimage
 import ImageProcessingFunctions as IPF
 import UserInputFunctions as UIF
+import pickle as pkl
 
 # User parameters
 folder = '..\\..\\DATA\\glyc_in_glyc\\scan_thresh\\'
@@ -34,10 +35,11 @@ pixPerMicron = 1.42 # pixels per micron in image; 1.42 for glyc in glyc; 1.4 for
 uncertainty = 15 # pixels of uncertainty in stream width
 channel = 'g' # channel containing outline of stream (saturated)
 eps = 0.1 # small parameter determining meaning of <<
+innerFlowRateMin = 1 # [uL/min] smallest flow rate to consider in fitting
 # saving parameters
 saveData = True
-saveFolder = '..\\..\\DATA\\glyc_in_glyc\\plots\\'
-dataFile = 'stream_width_vs_inner_flowrate_glyc.pkl' #'stream_width_vs_inner_flowrate.pkl' # glyc: 'stream_width_vs_inner_flowrate_glyc.pkl'
+saveFolder = '..\\..\\DATA\\glyc_in_glyc\\data\\'
+saveName = 'stream_width_vs_inner_flowrate_glyc.pkl' #'stream_width_vs_inner_flowrate.pkl' # glyc: 'stream_width_vs_inner_flowrate_glyc.pkl'
 # viewing parameters
 viewIms = False
 maskMsg = 'Click two opposing vertices to define rectangle around portion' + \
@@ -119,23 +121,31 @@ plt.ylabel('Stream width [um]', fontsize=A_FS)
 plt.title('Stream width vs. inner flow rate', fontsize=T_FS)
 # power-law fit
 # only consider small flow rates for which there is a predicted power-law deprightence
-small = innerFlowRateList < eps*outerFlowRateList #streamWidthMicron > 0
-x = innerFlowRateList[small]
-y = streamWidthMicron[small]
-sigma = sigmaList[small]
+toFit = np.logical_and(innerFlowRateList < eps*outerFlowRateList, \
+                        innerFlowRateList >= innerFlowRateMin)
+x = innerFlowRateList[toFit]
+y = streamWidthMicron[toFit]
+sigma = sigmaList[toFit]
 # fit power law
 m, A, sigmaM, sigmaA = Fun.power_law_fit(x, y, sigma)
 xFit = np.linspace(np.min(x), np.max(x), 20)
 yFit = A*x**m
 plt.plot(x, yFit, 'r--')
 # compare to theory
-yPredMicron = Fun.stream_width(innerFlowRateList[small], outerFlowRateList[small], widthCapMicron)
+yPredMicron = Fun.stream_width(innerFlowRateList[toFit], \
+                               outerFlowRateList[toFit], widthCapMicron)
 plt.plot(x, yPredMicron, 'b-')
 plt.legend(['data','y = (' + str(round(A)) + '+/-' + str(round(sigmaA)) + \
 ')*x^(' + str(round(m,2)) + '+/-' + str(round(sigmaM,2)) + ')',
-            'theory'], loc='best')
-# ^what is the problem with the fit?     
-       
+            'theory'], loc='best')     
+    
+if saveData:
+    data = {}
+    data['inner flow rate'] = innerFlowRateList
+    data['outer flow rate'] = outerFlowRateList
+    data['uncertainty of inner flow rate'] = sigmaList
+    with open(saveFolder + saveName, 'wb') as f:
+        pkl.dump(data, f)
 ### THIS THEORY IS NOT RIGHT ###
 ## linear fit based on exact theory
 #xTheory = (streamWidthList/pixPerMicron)**(-2) #convert width to um
