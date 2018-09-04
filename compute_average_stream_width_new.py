@@ -32,12 +32,14 @@ border = 2 # number of pixels from edge of outline to start measuring width
 widthCapMicron = 800 # inner diameter of capillary in um
 outerConversion = 1 # conversion to get actual inner flowrate
 pixPerMicron = 1.42 # pixels per micron in image; 1.42 for glyc in glyc; 1.4 for water, 1.475 for glyc; set to 0 to calculate from image by clicking
+innerMu = 1.412 # viscosity of inner fluid in Pa.s
+outerMu = 1.412 # viscosity of outer fluid in Pa.s
 uncertainty = 15 # pixels of uncertainty in stream width
 channel = 'g' # channel containing outline of stream (saturated)
-eps = 0.1 # small parameter determining meaning of <<
+eps = (0.1)**(1/3) # inner stream/outer stream radii, small parameter determining meaning of << 
 innerFlowRateMin = 1 # [uL/min] smallest flow rate to consider in fitting
 # saving parameters
-saveData = True
+saveData = False
 saveFolder = '..\\..\\DATA\\glyc_in_glyc\\data\\'
 saveName = 'stream_width_vs_inner_flowrate_glyc.pkl' #'stream_width_vs_inner_flowrate.pkl' # glyc: 'stream_width_vs_inner_flowrate_glyc.pkl'
 # viewing parameters
@@ -133,7 +135,8 @@ yFit = A*x**m
 plt.plot(x, yFit, 'r--')
 # compare to theory
 yPredMicron = Fun.stream_width(innerFlowRateList[toFit], \
-                               outerFlowRateList[toFit], widthCapMicron)
+                               outerFlowRateList[toFit], widthCapMicron, 
+                               innerMu=innerMu, outerMu=outerMu)
 plt.plot(x, yPredMicron, 'b-')
 plt.legend(['data','y = (' + str(round(A)) + '+/-' + str(round(sigmaA)) + \
 ')*x^(' + str(round(m,2)) + '+/-' + str(round(sigmaM,2)) + ')',

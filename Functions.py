@@ -677,12 +677,21 @@ def power_law_fit(x, y, sigma):
     
     return m, A, sigmaM, sigmaA
 
-def stream_width(innerFlowrate, outerFlowrate, innerDiameter):
+def stream_width(innerFlowrate, outerFlowrate, innerDiameter, innerMu=1E-3, outerMu=1E-3):
     """
     Gives expected radius of inner stream inside a cylindrical tube of a given
-    inner diameter given the inner and outer flowrates
+    inner diameter given the inner and outer flowrates. Included effect of
+    viscosity on Aug 13, 2018 based on the results from sheath_flow_diameter.nb
+    and the viscosities are set to be equal to that of water by default.
     """
-    streamWidth = innerDiameter*np.sqrt(innerFlowrate/(innerFlowrate + outerFlowrate))
+    if innerMu != outerMu:
+        print('WARNING: Formula is incorrect for unequal viscosities.')
+    # previous code
+#    num = innerFlowrate*innerMu
+#    den = (innerFlowrate + outerFlowrate)*innerMu + np.sqrt(outerFlowrate*innerMu*\
+#          (outerFlowrate*innerMu + innerFlowrate*outerMu))
+#    streamWidth = innerDiameter*np.sqrt(num/den)
+    streamWidth = innerDiameter*np.sqrt(innerFlowrate/(2*outerFlowrate))
     
     return streamWidth
     

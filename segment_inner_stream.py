@@ -23,23 +23,24 @@ from scipy.stats import mode
 
 # User Parameters
 # data for video
-folder = '..\\..\\DATA\\swagelok\\' # folder containing videos
-fileString = 'swagelok_sheath_0230_*_3_*.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
-bfFile = 'brightfield_3.jpg' #image of bright field, light but no flow
+folder = '..\\..\\DATA\\glyc_in_glyc\\' # folder containing videos
+fileString = 'sheath_glyc_glyc_0372_0001_d1_t1.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
+bfFile = 'brightfield_d1.jpg' #image of bright field, light but no flow
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
-maskDataFile = 'maskData_swagelok_20180726.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
+maskDataFile = 'maskData_glyc_20180822.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
 # analysis parameters
 meanFilter = True
 kernel = np.ones((5,5),np.float32)/25 # kernel for gaussian filter
-threshWindow = 30 # number of values above and below threshold to compute
-skip = 10
+threshWindow = 0 # number of values above and below threshold to compute
+skip = 5
 # TODO automate selection of these colors
 streamRGB = np.array([144,178,152]) # rgb values for predominant color in inner stream
 bkgdRGB = np.array([255,211,163])
 # Structuring element is radius 10 disk
 selem = skimage.morphology.disk(10)
-showIm = False
-showCounts = False # show counts of number of pixels with each value
+lineWidth = 5 # width of outline of thresholded region
+showIm = True
+showCounts = True # show counts of number of pixels with each value
 minSize = 10000 # minimum number of pixels to constitute part of image
 # saving parameters
 saveIm = True
@@ -107,7 +108,7 @@ for i in range(nIms):
             IPF.show_im(imFilled,'Filled holes of Inner Stream image')
     
         ### TRACE CONTOUR OF LARGEST OBJECT ###
-        imCntRoi = IPF.get_contour_bw_im(imFilled, showIm)
+        imCntRoi = IPF.get_contour_bw_im(imFilled, showIm, lineWidth=lineWidth)
         imSuperimposed, ret = IPF.superimpose_bw_on_color(im, imCntRoi, roiLims,channel='g')
         # place contour in full size image and skip images with no contour
         if not ret:

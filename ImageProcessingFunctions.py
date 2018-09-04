@@ -301,7 +301,7 @@ def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=3.0):
     print('iCrossing1 = ' + str(iCrossing1))
     # index of crossing immediately before peak (assumes no wild fluctuations)
     iPeak1 = [i for i in range(len(iCrossing1)-1) if iCrossing1[i] <= iMax1 \
-              and iCrossing1[i+1] > iMax1][0]
+              and iCrossing1[i+1] >= iMax1][0]
     # full width at half maximum is difference in values at half max on either
     # side of peak
     fwhm1 = values1[iCrossing1[iPeak1+1]] - values1[iCrossing1[iPeak1]]
@@ -312,7 +312,7 @@ def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=3.0):
     iCrossing2 = np.concatenate((np.array([0]), iCrossing2,np.array([len(values2)-1])))
     # index of crossing just below tallest peak (assumes no wild fluctuations)
     iPeak2 = [i for i in range(len(iCrossing2)-1) if iCrossing2[i] <= iMax2 \
-              and iCrossing2[i+1] > iMax2][0]
+              and iCrossing2[i+1] >= iMax2][0]
     # full width at half maximum is difference in values at half max on either
     # side of peak
     fwhm2 = values2[iCrossing2[iPeak2+1]] - values2[iCrossing2[iPeak2]]
@@ -660,7 +660,7 @@ def get_channel_index(channel, imageType='rgb'):
     return channelDict[channel]
 
 
-def get_contour_bw_im(imBin, showIm):
+def get_contour_bw_im(imBin, showIm, lineWidth=1):
     """
     returns image showing only a 1-pixel thick contour enclosing largest object
     in the binary image given.
@@ -680,7 +680,11 @@ def get_contour_bw_im(imBin, showIm):
     # create image of contour
     imCnt = np.zeros_like(imBin,dtype='uint8')
     cv2.drawContours(imCnt, [cntMaxZip], -1, 255, 1)
-
+    # dilation
+    assert(lineWidth >= 1, 'Line width must be greater than or equal to 1.')
+    for i in range(lineWidth-1):
+        imCnt = skimage.morphology.binary_dilation(imCnt)
+    
     return imCnt
 
 
