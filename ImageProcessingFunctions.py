@@ -33,6 +33,9 @@ def calculate_stream_width(im, left, right):
     streamWidthSqSum = 0
     colCt = 0
     cutCols = [] # list of columns that were cut off by mask
+    # measure angle
+    firstXY = []
+    lastXY = []
     # loop through column indices to determine average stream width in pixels
     for p in range(left, right):
         # extract current column from masked image
@@ -51,10 +54,15 @@ def calculate_stream_width(im, left, right):
             continue
         # if only upper and lower bounds of contour are saturated, measure separation in pixels
         else:
-            # count columns in proper format
+            # tally the number of columns that are in proper format
             colCt += 1
+            # rows with saturated pixels
+            rows = np.where(is255)[0]
+            if len(firstXY) == 0:
+                firstXY = (p, max(rows))
+            lastXY = (p, max(rows))
             # calculate width of stream by taking difference of locations of saturated pixels
-            streamWidth = np.diff(np.where(is255)[0])[0]
+            streamWidth = np.diff(rows)[0]
             streamWidthSum += streamWidth
             streamWidthSqSum += streamWidth**2
     # print range of columns cut off by mask
@@ -71,6 +79,13 @@ def calculate_stream_width(im, left, right):
         streamWidthMean = float(streamWidthSum) / colCt
         streamWidthStDev = np.sqrt(float(streamWidthSqSum) / colCt - streamWidthMean**2)
 
+    # correct for angle
+    th = np.arctan((lastXY[1]-firstXY[1])/(lastXY[0]-firstXY[0]))
+    print('theta = ' + str(th))
+    angleCorr = np.cos(th)
+    streamWidthMean *= angleCorr
+    streamWidthStDev *= angleCorr
+    
     return streamWidthMean, streamWidthStDev
 
 def clean_up_bw_im(imBin, selem, minSize):
@@ -269,58 +284,74 @@ def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=3.0):
     counts = medfilt(counts, kernel_size=5) 
     # find max value with non-negligible amount of counts (above noise)
     maxCt = np.max(counts)
-    # find points of crossing 10% of max counts
-    # TODO no magic numbers!
-    cr = np.where(Fun.get_crossings(counts, 0.01*maxCt))[0]
-    # max value is last such crossing
-    maxVal = cr[-1]
-    # split pixels to those with values above and below half of max value
-    inds1 = values < maxVal/2.0
-    inds2 = np.logical_not(inds1)
-    # split values and counts into high and low
-    values1 = values[inds1]
-    counts1 = counts[inds1]
-    values2 = values[inds2]
-    counts2 = counts[inds2]
-    # guess for gaussian means (1st and 3rd quartile boundaries of uint8 (0-255))
-    mu1G = maxVal/4.0
-    mu2G = 3*maxVal/4.0
-    # guess amplitudes based on max in each half of plot
-    a1G = np.max(counts1)
-    iMax1 = np.argmax(counts1)
-    a2G = np.max(counts2)
-    iMax2 = np.argmax(counts2)
+    # find second peak by scanning crossings at lower counts
+    reachedValley = False
+    for i in range(0,100):
+        ct = maxCt*i/100.0
+        cr = np.where(Fun.get_crossings(counts, ct))[0]
+        # reached valley between two peaks
+        if len(cr) >= 4:
+            reachedValley = True
+        # if only 2 crossings (i.e. at level where there is only one peak)
+        if reachedValley and len(cr) <= 2:  
+            while len(cr) != 4:
+                i-=1
+                ct = maxCt*i/100.0
+                cr = np.where(Fun.get_crossings(counts, ct))[0]
+            break
+    ctPeak1 = np.max(counts[cr[0]:cr[1]])
+    crPeak1 = np.where(counts==ctPeak1)[0]
+    iPeak1 = Fun.choose_middle(crPeak1[np.logical_and(crPeak1 > cr[0], crPeak1 <cr[1])])
+    ctPeak2 = np.max(counts[cr[2]:cr[3]])
+    crPeak2 = np.where(counts==ctPeak2)[0]
+    iPeak2 = Fun.choose_middle(crPeak2[np.logical_and(crPeak2 > cr[2], crPeak2 <cr[3])])
+    # guess amplitudes based on max of each peak, and means as their indices
+    a1G = ctPeak1
+    mu1G = values[iPeak1]
+    a2G = ctPeak2
+    mu2G = values[iPeak2]    
 
+    # split indices for each peak
+    ctValley = np.min(counts[iPeak1:iPeak2])
+    crValley = np.where(counts==ctValley)[0]
+    iValley = Fun.choose_middle(crValley[np.logical_and(crValley > iPeak1, crValley < iPeak2)])
+    counts1 = counts[:iValley]
+    values1 = values[:iValley]
+    counts2 = counts[iValley:]
+    values2 = values[iValley:]
     ### guess standard deviations based on full width at half maximum ###
     # find indices of points where histogram crosses half maximum of tallest peak
-    iCrossing1 = np.where(Fun.get_crossings(counts1, a1G/2.0))[0]
+    iCrossing1 = np.where(Fun.get_crossings(counts1, (a1G-ctValley)/2.0+ctValley))[0]
     # append max and minimum values to indices of crossings for edge cases
     iCrossing1 = np.concatenate((np.array([0]), iCrossing1,np.array([len(values1)-1])))
-    print('inds1 = ' + str(inds1))
-    print('iMax1 = ' + str(iMax1))
-    print('iCrossing1 = ' + str(iCrossing1))
     # index of crossing immediately before peak (assumes no wild fluctuations)
-    iPeak1 = [i for i in range(len(iCrossing1)-1) if iCrossing1[i] <= iMax1 \
-              and iCrossing1[i+1] >= iMax1][0]
+    iLeft1 = Fun.choose_middle([i for i in range(len(iCrossing1)-1) if iCrossing1[i] <= iPeak1 \
+              and iCrossing1[i+1] >= iPeak1])
+    iRight1 = iLeft1 + 1
     # full width at half maximum is difference in values at half max on either
     # side of peak
-    fwhm1 = values1[iCrossing1[iPeak1+1]] - values1[iCrossing1[iPeak1]]
+    fwhm1 = values1[iCrossing1[iRight1]] - values1[iCrossing1[iLeft1]]
     
     # find indices of points where histogram crosses half maximum of tallest peak
-    iCrossing2 = np.where(Fun.get_crossings(counts2, a2G/2.0))[0]
+    iCrossing2 = np.where(Fun.get_crossings(counts2, (a2G-ctValley)/2.0+ctValley))[0]
     # append max and minimum values to indices of crossings for edge cases
     iCrossing2 = np.concatenate((np.array([0]), iCrossing2,np.array([len(values2)-1])))
+    # shift index of peak2 to match indices of counts2
+    iPeakShifted2 = iPeak2 - len(counts1)
     # index of crossing just below tallest peak (assumes no wild fluctuations)
-    iPeak2 = [i for i in range(len(iCrossing2)-1) if iCrossing2[i] <= iMax2 \
-              and iCrossing2[i+1] >= iMax2][0]
+    iLeft2 = Fun.choose_middle([i for i in range(len(iCrossing2)-1) if \
+                                iCrossing2[i] <= iPeakShifted2 and iCrossing2[i+1] >= iPeakShifted2])
     # full width at half maximum is difference in values at half max on either
     # side of peak
-    fwhm2 = values2[iCrossing2[iPeak2+1]] - values2[iCrossing2[iPeak2]]
+    iRight2 = iLeft2 + 1
+    fwhm2 = values2[iCrossing2[iRight2]] - values2[iCrossing2[iLeft2]]
     
     # guess for standard deviation is full width at half maximum of tallest peak
     sG1 = fwhm1/2.0
     sG2 = fwhm2/2.0
     
+#    print('a1G ' + str(a1G) + ' mu1G ' + str(mu1G) + ' sG1 ' + str(sG1) +\
+#          ' a2G ' + str(a2G) + ' mu2G ' + str(mu2G) + ' sG2 ' + str(sG2))
     # Least squares fit. Starting values found by inspection.
     paramsG =  np.array([a1G, mu1G, sG1, a2G, mu2G, sG2])
     result = least_squares(lambda params:Fun.double_gaussian_fit(values, \
@@ -329,6 +360,7 @@ def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=3.0):
     params = result.x
     # print termination reason
     print(result.message)
+#    print('params are ' + str(params))
     # extract parameters and assign them to the taller and smaller peaks accordingly
     (a1, mu1, s1, a2, mu2, s2) = params
     # find lower-mean peak by offsetting by 3 if mu1 > mu2

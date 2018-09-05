@@ -30,6 +30,16 @@ def add_col(mat, col, colNum):
     
     return newMat
     
+def choose_middle(arr):
+    """
+    Returns the middle element of an array.
+    """
+    if len(arr) == 0:
+        print('WARNING: array ' + str(arr) + ' is empty. Returning empty array.')
+        return []
+    
+    return arr[int(len(arr)/2)]
+    
 def convert_condition(condition):
     """
     Converts old format of conditions

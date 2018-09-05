@@ -24,27 +24,27 @@ from scipy.stats import mode
 # User Parameters
 # data for video
 folder = '..\\..\\DATA\\glyc_in_glyc\\' # folder containing videos
-fileString = 'sheath_glyc_glyc_0372_0001_d1_t1.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
+fileString = 'sheath_glyc_glyc_0372_0004_d1_t2.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
 bfFile = 'brightfield_d1.jpg' #image of bright field, light but no flow
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
 maskDataFile = 'maskData_glyc_20180822.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
 # analysis parameters
 meanFilter = True
 kernel = np.ones((5,5),np.float32)/25 # kernel for gaussian filter
-threshWindow = 0 # number of values above and below threshold to compute
-skip = 5
+threshWindow = 70 # number of values above and below threshold to compute
+skip = 10
 # TODO automate selection of these colors
 streamRGB = np.array([144,178,152]) # rgb values for predominant color in inner stream
 bkgdRGB = np.array([255,211,163])
 # Structuring element is radius 10 disk
 selem = skimage.morphology.disk(10)
-lineWidth = 5 # width of outline of thresholded region
-showIm = True
-showCounts = True # show counts of number of pixels with each value
+lineWidth = 1 # width of outline of thresholded region
+showIm = False
+showCounts = False # show counts of number of pixels with each value
 minSize = 10000 # minimum number of pixels to constitute part of image
 # saving parameters
 saveIm = True
-saveFolder = '..\\..\\DATA\\swagelok\\processed_images\\'
+saveFolder = '..\\..\\DATA\\glyc_in_glyc\\scan_thresh\\'
 
 
 ###############################################################################
@@ -61,10 +61,12 @@ pathToFiles = os.path.join(folder,fileString)
 # Create list of files to analyze
 fileList = glob.glob(pathToFiles)
 # Number of images to consider
-nIms = len(fileList)
+nThresh = int(2*threshWindow/skip + 1)
+nFiles = len(fileList)
+nIms = int(nFiles*nThresh)
 
 # Loop through all videos
-for i in range(nIms):
+for i in range(nFiles):
     ### EXTRACT AND SMOOTH IMAGE ###
     # Parse the filename to get image info
     imPath = fileList[i]
@@ -97,7 +99,8 @@ for i in range(nIms):
     thresh = IPF.get_auto_thresh_double_gaussian(imProj, showPlot=showIm)
 #       
     ### LOOP THROUGH DIFFERENT VALUES OF THRESHOLD NEAR COMPUTED VALUE ###
-    for thr in range(thresh-threshWindow, thresh+threshWindow+1,skip):
+    for j in range(nThresh):
+        thr = thresh-threshWindow + j*skip
         ret, imInnerStream = cv2.threshold(imProj,thr,255,cv2.THRESH_BINARY)
         if showIm:
             IPF.show_im(imInnerStream, 'inner stream')
@@ -127,4 +130,4 @@ for i in range(nIms):
             saveName = saveFolder + fileName[:-4] + '_thr' + str(thr) + '.png'
             # save in save folder as .png rather than previous file extension
             cv2.imwrite(saveName, cv2.cvtColor(imSuperimposed, cv2.COLOR_RGB2BGR))
-            print('Saved ' + str(i+1) + ' of ' + str(nIms) + ' images.')
+            print('Saved ' + str(i*nFiles+j+1) + ' of ' + str(nIms) + ' images.')
