@@ -135,6 +135,15 @@ def create_circular_mask(image,R,center):
     return mask
 
 
+def make_polygon_mask(image):
+    """
+    Allows user to make polygonal mask for given image and returns mask.
+    """
+    points = UIF.define_outer_edge(image,'polygon',message='click vertices')
+    mask = create_polygon_mask(image, points)
+
+    return mask    
+    
 def create_polygon_mask(image,points):
     """
     Create 2D mask (boolean array) with same dimensions as input image
@@ -879,15 +888,30 @@ def superimpose_bw_on_color(imColor, imBW, roiLims, channel, imageType='rgb',
     # superimposing was successful
     return imSuperimposed, True
 
-def threshold_im(frame, thresh, selem):
+def threshold_im(im, thresh=-1, c=None):
     """
     Applies a threshold to the image and returns black-and-white result.
     """
-    newImage = np.uint16(image)
-    local_otsu = filters.rank.otsu(newImage,selem)
-    newImage = np.uint8(newImage >= local_otsu)
+    nDims = len(im.shape)
+    if nDims == 3:
+        if not c:
+            brightestChannel = -1
+            brightestPixelVal = -1
+            for i in range(nDims):
+                brightestCurr = np.max(im[:,:,i])
+                if brightestCurr > brightestPixelVal:
+                    brightestChannel = i
+                    brightestPixelVal = brightestCurr
+        else:
+            brightestChannel = c
+        im = np.copy(im[:,:,brightestChannel])
+    if thresh == -1:
+        # Otsu's thresholding
+        ret, threshIm = cv2.threshold(im,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    else:
+        ret, threshIm = cv2.threshold(im, thresh, 255, cv2.THRESH_BINARY)
 
-    return newImage
+    return threshIm
  
 def filter_frame(frame):
     """

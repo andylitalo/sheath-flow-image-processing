@@ -31,7 +31,7 @@ vidFile = 'glyc_co2_1057fps_238us_7V_0200_6-5bar_141mm.mp4'
 # Processing
 # dimensions of structuring element (pixels, pixels)
 selem = skimage.morphology.disk(10)
-thresh = 125
+thresh = -1
 
 # display
 windowName = 'Video'
@@ -59,6 +59,9 @@ for v in range(nVids):
     refFrame = VF.extract_frame(Vid,nRefFrame)
     # filter frame using mean filter
     refFrame = IPF.mean_filter(refFrame, selem)
+    # create mask from reference frame
+    mask, boundary = IPF.make_polygon_mask(refFrame)
+    refFrame = IPF.mask_image(refFrame, mask)
     
     # loop through video frames
     nFrames = 10
@@ -67,14 +70,14 @@ for v in range(nVids):
     for f in range(offset, offset + nFrames):
         print('Now showing frame #' + str(f))
         # image subtraction
-        frame = VF.extract_frame(Vid,f)
+        frame = IPF.mask_image(VF.extract_frame(Vid,f),mask)
         # darker image must be second or else change will be 0
         subtIm = cv2.subtract(refFrame, frame)
         # process image
         subtIm = IPF.scale_brightness(subtIm)
         # threshold
-        threshIm = IPF.threshold_im(subtIm, thresh, selem)
-        
+        threshIm = IPF.threshold_im(subtIm, thresh, c=1)
+        threshIm = cv2.cvtColor(threshIm,cv2.COLOR_GRAY2RGB)
         # display image
         twoIms = np.concatenate((threshIm, subtIm), axis=1)
         cv2.imshow(windowName, twoIms)
