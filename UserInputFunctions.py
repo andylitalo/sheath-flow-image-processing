@@ -6,7 +6,6 @@ Created on Wed May 20 16:52:03 2015
 """
 import matplotlib.pyplot as plt
 import numpy as np
-import ctypes
 import pickle as pkl
 
 #Custom modules
@@ -120,7 +119,7 @@ def define_outer_edge(image,shapeType,message=''):
         xyVals = [(np.min(X),np.min(Y)), (np.max(X),np.min(Y)),
                   (np.max(X),np.max(Y)), (np.min(X),np.max(Y))]
         return xyVals
-
+    
 def get_rect_mask_data(im,maskFile,check=False):
     """
     Shows user masks overlayed on given image and asks through a dialog box

@@ -50,7 +50,7 @@ def extract_frame(Vid,nFrame,hMatrix=None,maskData=None,filterFrame=False,
     """
     Extracts nFrame'th frame and scales by 'scale' factor from video 'Vid'.
     """
-    Vid.set(1,nFrame)
+    Vid.set(cv2.CAP_PROP_POS_FRAMES,nFrame)
     ret, frame = Vid.read()
     if not ret:
         print('Frame not read')

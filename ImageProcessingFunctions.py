@@ -879,7 +879,16 @@ def superimpose_bw_on_color(imColor, imBW, roiLims, channel, imageType='rgb',
     # superimposing was successful
     return imSuperimposed, True
 
+def threshold_im(frame, thresh, selem):
+    """
+    Applies a threshold to the image and returns black-and-white result.
+    """
+    newImage = np.uint16(image)
+    local_otsu = filters.rank.otsu(newImage,selem)
+    newImage = np.uint8(newImage >= local_otsu)
 
+    return newImage
+ 
 def filter_frame(frame):
     """
     Apply the prescribed filter to the video frame to remove noise.
@@ -953,6 +962,21 @@ def bgr2rgb(frame):
     
     return frame
 
+def mean_filter(frame, selem):
+    """
+    Performs mean filter on each of the color channels of an 3-channel image.
+    """
+    shape = frame.shape
+    if len(shape) == 2:
+        frame = skimage.filters.rank.mean(frame, selem)
+    elif len(shape) == 3:
+        for i in range(len(frame[0,0,:])):
+            frame[:,:,i] = skimage.filters.rank.mean(frame[:,:,i], selem)
+    else:
+        print("Frame is not either a 2D or 3D array and was not filtered.")
+        
+    return frame
+
 def process_frame(frame,ref,wettedArea,theta,threshold1,threshold2):
     """
     Compare the frame of interest to a reference frame and already known
@@ -1021,6 +1045,18 @@ def get_perimeter(wettedArea):
 
     return data
 
+def scale_brightness(image):
+    """
+    Rescales the pixel values of the image such that the highest value is 255
+    and the lowest is 0 for maximum contrast.
+    """
+    maxIntensity = np.max(image)
+    minIntensity = np.min(image)
+    image -= minIntensity
+    image = image.astype(float)
+    image *= 255. / (maxIntensity - minIntensity)
+    
+    return image.astype('uint8')
 
 def union_thresholded_ims(im1, im2, pct1, pct2, showIm=False,
                           title1='image 1', title2='image 2'):

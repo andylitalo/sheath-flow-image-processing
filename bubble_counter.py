@@ -8,15 +8,35 @@ passing through the field of view of a video of sheath flow.
 
 import ImageProcessingFunctions as IPF
 import VideoFunctions as VF
+import UserInputFunctions as UIF
+
+import skimage.morphology
+import cv2
+
+from tkinter import messagebox
+
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 import glob
 
 ###############################################################################
-# User parameters
-vidFolder = '..\\..\\DATA\\20181210\\'
-vidFile = 'glyc_n2_1057fps_238us_7V_0200_6-5bar_141mm.mp4'
+# USER PARAMETERS
+# Video
+# folder containing the video to be processed
+vidFolder = '..\\..\\Videos\\'
+# name of the video file
+vidFile = 'glyc_co2_1057fps_238us_7V_0200_6-5bar_141mm.mp4'
+
+# Processing
+# dimensions of structuring element (pixels, pixels)
+selem = skimage.morphology.disk(10)
+thresh = 125
+
+# display
+windowName = 'Video'
+waitMS = 1000 # milliseconds to wait between frames
+
 
 ###############################################################################
 # Processing
@@ -28,19 +48,38 @@ nVids = len(vidPathList)
 
 # loop through videos
 for v in range(nVids):
+    
     # load video data
     vidPath = vidPathList[v]
     Vid = VF.get_video_object(vidPath)
-    Props = VF.parse_video_obj(Vid)
-    nFrames = int(Props.NumFrames)
+    nFrames = int(Vid.get(cv2.CAP_PROP_FRAME_COUNT))
+    
     # select reference frame (probably just the first frame)
-    refFrame = VF.extract_frame(Vid,0)
-    # show reference frame to check
-    plt.figure()
-    refFrame = IPF.bgr2rgb(refFrame)
-    plt.imshow(refFrame)
+    nRefFrame = 0
+    refFrame = VF.extract_frame(Vid,nRefFrame)
+    # filter frame using mean filter
+    refFrame = IPF.mean_filter(refFrame, selem)
+    
     # loop through video frames
-#    for f in range(nFrames):
+    nFrames = 10
+    offset = 1270     
+    cv2.namedWindow(windowName)
+    for f in range(offset, offset + nFrames):
+        print('Now showing frame #' + str(f))
         # image subtraction
+        frame = VF.extract_frame(Vid,f)
+        # darker image must be second or else change will be 0
+        subtIm = cv2.subtract(refFrame, frame)
+        # process image
+        subtIm = IPF.scale_brightness(subtIm)
+        # threshold
+        threshIm = IPF.threshold_im(subtIm, thresh, selem)
+        
         # display image
-        # wait for user click to approve going to next image or saving image
+        twoIms = np.concatenate((threshIm, subtIm), axis=1)
+        cv2.imshow(windowName, twoIms)
+        # waits for allotted number of milliseconds
+        k = cv2.waitKey(waitMS)
+        # pauses if any key is clicked
+        if k != -1:
+            break
