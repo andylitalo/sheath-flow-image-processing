@@ -54,23 +54,12 @@ def extract_frame(Vid,nFrame,hMatrix=None,maskData=None,filterFrame=False,
     ret, frame = Vid.read()
     if not ret:
         print('Frame not read')
-    else:
-        frame = frame[:,:,0]
 
     # Scale the size if requested
     if scale != 1:
         frame = IPF.scale_image(frame,scale)
 
-    # Perform image filtering if requested
-    if filterFrame:
-        if removeBanner:
-            ind = np.argmax(frame[:,0]>0)
-            temp = frame[ind:,:]
-            temp = IPF.filter_frame(temp)
-            frame[ind:,:] = temp
-        else:
-            frame = IPF.filter_frame(frame)
-
+    
     # Apply image transformation using homography matrix if passed
     if hMatrix is not None:
         temp = frame.shape

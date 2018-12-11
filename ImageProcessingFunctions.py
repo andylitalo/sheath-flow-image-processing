@@ -354,6 +354,7 @@ def get_auto_thresh_double_gaussian(im, showPlot=False, nSigma=3.0):
 #          ' a2G ' + str(a2G) + ' mu2G ' + str(mu2G) + ' sG2 ' + str(sG2))
     # Least squares fit. Starting values found by inspection.
     paramsG =  np.array([a1G, mu1G, sG1, a2G, mu2G, sG2])
+    print(paramsG)
     result = least_squares(lambda params:Fun.double_gaussian_fit(values, \
                              counts, params), paramsG, bounds=(np.array([0,0,0,0,0,0]),\
                                np.array([np.inf, 255, 255, np.inf, 255, 255])))
@@ -793,7 +794,7 @@ def scale_image(im,scale):
 
     return im
 
-def show_im(im, title='', showCounts=False, tFS=24):
+def show_im(im, title='', showCounts=False, tFS=24, pixPerMicron=0):
     """
     Shows image in new figure with given title
     """
@@ -813,9 +814,19 @@ def show_im(im, title='', showCounts=False, tFS=24):
         # display image
         plt.show()
     else:
+        xMax = im.shape[1]
+        yMax = im.shape[0]
+        # if given a conversion for pixels to microns
+        if pixPerMicron > 0:
+            xMax /= pixPerMicron
+            yMax /= pixPerMicron
         # plot image
-        plt.imshow(im)
+        plt.imshow(im, extent=[0, xMax, 0, yMax])
         plt.title(title, fontsize=tFS)
+        # add axis label if shown in microns
+        if pixPerMicron > 0:
+            plt.xlabel('um')
+            plt.ylabel('um')            
         plt.show()
 
 
@@ -932,6 +943,15 @@ def apply_local_otsu(image,radius=50):
     newImage = np.uint8(newImage >= local_otsu)
 
     return newImage
+
+def bgr2rgb(frame):
+    """
+    Converts BGR frame (received by high-speed camera) to RGB
+    """
+    temp = np.ndarray.copy(frame)
+    frame = np.dstack((temp[:,:,2],temp[:,:,1],temp[:,:,0]))
+    
+    return frame
 
 def process_frame(frame,ref,wettedArea,theta,threshold1,threshold2):
     """

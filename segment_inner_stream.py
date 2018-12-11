@@ -9,6 +9,7 @@ NOTE: Must type "%matplotlib qt" into console to run file in Spyder
 the console output). Otherwise you will receive a "NotImplementedError."
 """
 
+############## GET_AUTO_THRESH_DOUBLE_GAUSSIAN IS BUGGY FOR FINDING TWO PEAKS WHEN THERE ARE THREE OR MORE #####
 # import packages
 import glob
 import os
@@ -24,26 +25,29 @@ from scipy.stats import mode
 # User Parameters
 # data for video
 folder = '..\\..\\DATA\\glyc_in_glyc\\' # folder containing videos
-fileString = 'sheath_glyc_glyc_0372_0004_d1_t2.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
+fileString = 'sheath_glyc_glyc_0372_0100_d1_t3.jpg' # filestring of videos to analyze, glycerol: 'sheath_cap_glyc_0100*.jpg'
 bfFile = 'brightfield_d1.jpg' #image of bright field, light but no flow
 maskMsg = 'Click opposing corners of rectangle to include desired section of image.'
 maskDataFile = 'maskData_glyc_20180822.pkl'#'maskData_180613.pkl' # glycerol: 'maskData_glyc_180620.pkl'
+# system parameters
+widthCapMicron = 800 # inner diameter of capillary [um], 800 um for glyc in glyc, 560 for studies in June
+pixPerMicron = 1.42 # 1.42 for glyc in glyc; 1.4 for water, 1.475 for glyc; set to 0 to calculate from image by clicking 
 # analysis parameters
 meanFilter = True
 kernel = np.ones((5,5),np.float32)/25 # kernel for gaussian filter
-threshWindow = 70 # number of values above and below threshold to compute
-skip = 10
+threshWindow = 0 # number of values above and below threshold to compute
+skip = 35
 # TODO automate selection of these colors
 streamRGB = np.array([144,178,152]) # rgb values for predominant color in inner stream
 bkgdRGB = np.array([255,211,163])
 # Structuring element is radius 10 disk
 selem = skimage.morphology.disk(10)
-lineWidth = 1 # width of outline of thresholded region
-showIm = False
-showCounts = False # show counts of number of pixels with each value
+lineWidth = 5 # width of outline of thresholded region
+showIm = True
+showCounts = True # show counts of number of pixels with each value
 minSize = 10000 # minimum number of pixels to constitute part of image
 # saving parameters
-saveIm = True
+saveIm = False
 saveFolder = '..\\..\\DATA\\glyc_in_glyc\\scan_thresh\\'
 
 
@@ -77,10 +81,15 @@ for i in range(nFiles):
     # copy and apply mean filter to each channel (rgb) of image
     imCopy = IPF.rgb_gauss(np.copy(im), selem)
 
+    # calculate pixels per micron by clicking on first image if no conversion given
+    if i == 0 and pixPerMicron == 0:
+        pixPerMicron = UIF.pixels_per_micron(imCopy, widthCapMicron)
+        
     ### CORRECT BRIGHTFIELD INHOMOGENEITIES ###
     imCopy = IPF.scale_by_brightfield(imCopy, bf)
     if showIm:
         IPF.show_im(imCopy, 'brightfield scaled')
+        
     ### MASK IMAGE ###
     # user-defined mask for determining where to search
     maskData = UIF.get_rect_mask_data(imCopy, maskDataFile)
@@ -97,6 +106,7 @@ for i in range(nFiles):
         
 #    ### CALCULATE GUESS FOR THRESHOLD ###
     thresh = IPF.get_auto_thresh_double_gaussian(imProj, showPlot=showIm)
+    thresh = 135
 #       
     ### LOOP THROUGH DIFFERENT VALUES OF THRESHOLD NEAR COMPUTED VALUE ###
     for j in range(nThresh):
@@ -119,7 +129,7 @@ for i in range(nFiles):
             continue
         # show final result
         if showIm:
-            IPF.show_im(imSuperimposed,'Image with outline')
+            IPF.show_im(imSuperimposed,'Image with outline', pixPerMicron=pixPerMicron)
     
         ### SAVE IMAGE ###
         # save image with edge overlayed

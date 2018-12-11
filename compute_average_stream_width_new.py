@@ -36,10 +36,10 @@ innerMu = 1.412 # viscosity of inner fluid in Pa.s
 outerMu = 1.412 # viscosity of outer fluid in Pa.s
 uncertainty = 15 # pixels of uncertainty in stream width
 channel = 'g' # channel containing outline of stream (saturated)
-eps = (0.1)**(1/3) # inner stream/outer stream radii, small parameter determining meaning of << 
-innerFlowRateMin = 1 # [uL/min] smallest flow rate to consider in fitting
+eps = 0.1 # inner stream/outer stream radii, small parameter determining meaning of << 
+innerFlowRateMin = 0 # [uL/min] smallest flow rate to consider in fitting
 # saving parameters
-saveData = False
+saveData = True
 saveFolder = '..\\..\\DATA\\glyc_in_glyc\\data\\'
 saveName = 'stream_width_vs_inner_flowrate_glyc.pkl' #'stream_width_vs_inner_flowrate.pkl' # glyc: 'stream_width_vs_inner_flowrate_glyc.pkl'
 # viewing parameters
@@ -111,6 +111,12 @@ for i in range(nIms):
     streamWidthList[i] = streamWidthMean
     sigmaList[i] = max(streamWidthStDev, uncertainty) # max between statistical noise and uncertainty
 
+# Combine datapoints for same inner flow rate into one with weighted uncertainty
+innerFlowRateList, streamWidthList, sigmaList = Fun.combine_repetitions(innerFlowRateList, streamWidthList, sigmaList)
+# shorten outer flow rate list
+outerFlowRateList = outerFlowRateList[0]*np.ones([len(innerFlowRateList)])
+# ensure that uncertainty doesn't go below the experimental uncertainty
+sigmaList[sigmaList < uncertainty] = uncertainty
 # Plot stream width as a function of inner flowrate on linear axes
 streamWidthMicron = streamWidthList/pixPerMicron
 sigmaMicronList = sigmaList / pixPerMicron
@@ -134,10 +140,10 @@ xFit = np.linspace(np.min(x), np.max(x), 20)
 yFit = A*x**m
 plt.plot(x, yFit, 'r--')
 # compare to theory
-yPredMicron = Fun.stream_width(innerFlowRateList[toFit], \
-                               outerFlowRateList[toFit], widthCapMicron, 
+yPredMicron = Fun.stream_width(innerFlowRateList, \
+                               outerFlowRateList, widthCapMicron, 
                                innerMu=innerMu, outerMu=outerMu)
-plt.plot(x, yPredMicron, 'b-')
+plt.plot(innerFlowRateList, yPredMicron, 'b-')
 plt.legend(['data','y = (' + str(round(A)) + '+/-' + str(round(sigmaA)) + \
 ')*x^(' + str(round(m,2)) + '+/-' + str(round(sigmaM,2)) + ')',
             'theory'], loc='best')     
@@ -146,24 +152,7 @@ if saveData:
     data = {}
     data['inner flow rate'] = innerFlowRateList
     data['outer flow rate'] = outerFlowRateList
-    data['uncertainty of inner flow rate'] = sigmaList
+    data['stream width'] = streamWidthMicron
+    data['uncertainty of inner flow rate'] = sigmaMicronList
     with open(saveFolder + saveName, 'wb') as f:
         pkl.dump(data, f)
-### THIS THEORY IS NOT RIGHT ###
-## linear fit based on exact theory
-#xTheory = (streamWidthList/pixPerMicron)**(-2) #convert width to um
-#yTheory = 1/innerFlowRateList
-#mTheory, bTheory = np.polyfit(xTheory, yTheory, 1)
-#outerFlowRateTheory = -1/bTheory
-#widthCapMicronTheory = np.sqrt(-mTheory/bTheory)
-#print 'theoretical outer flow rate is ' + str(outerFlowRateTheory)
-#print 'theoretical width of capillary is ' + str(widthCapMicronTheory)
-#plt.figure()
-#plt.plot(xTheory, yTheory, 'b^', markersize=MS)
-#yTheoryFit = mTheory*xTheory + bTheory
-#plt.plot(xTheory, yTheoryFit, 'r--')
-#plt.xlabel('1/Inner Flowrate^2 [ul/min]', fontsize=A_FS)
-#plt.ylabel('1/Stream width [um]', fontsize=A_FS)
-#plt.title('Fit theory', fontsize=T_FS)
-#plt.legright(['data', 'Qin^-1 = ' + str(round(mTheory,2)) + 'Din^-2 + ' + str(round(bTheory,3))],
-#            loc='best')

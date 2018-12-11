@@ -39,6 +39,37 @@ def choose_middle(arr):
         return []
     
     return arr[int(len(arr)/2)]
+
+def combine_repetitions(x, y, sigma):
+    """
+    Given x, y values with uncertainties in the y-value sigma, combines
+    repeated measurements of y for the same x and computes the weighted 
+    uncertainty.
+    INPUTS
+        x : array of x-values of data
+        y : array of y-values of data
+        sigma : array of uncertainty in y-values of data
+    RETURNS
+        xUnique : array of x-values for combined data
+        yUnique : array of y-values for combined data
+        sigmaUnique : array of weighted uncertainties in combined y-values of data
+    """
+    xUnique, inds = np.unique(x, return_index=True)
+    # number of unique data points
+    nUnique = len(inds)
+    # initialize arrays to store combined y-values and uncertainties
+    yUnique = np.zeros([nUnique])
+    sigmaUnique = np.zeros([nUnique])
+    # add length of array as a stopping point
+    bins = np.append(inds, len(x))
+    for i in range(nUnique):
+        j1 = bins[i]
+        j2 = bins[i+1]
+        yUnique[i] = np.sum(y[j1:j2]/sigma[j1:j2]**2)/np.sum(1/sigma[j1:j2]**2)
+        sigmaUnique[i] = np.sqrt(1/np.sum(1/sigma[j1:j2]**2))
+    
+    return xUnique, yUnique, sigmaUnique
+    
     
 def convert_condition(condition):
     """
