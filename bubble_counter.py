@@ -31,7 +31,7 @@ vidFile = 'glyc_co2_1057fps_238us_7V_0200_6-5bar_141mm.mp4'
 # Processing
 # dimensions of structuring element (pixels, pixels)
 selem = skimage.morphology.disk(10)
-thresh = -1
+thresh = 127
 
 # display
 windowName = 'Video'
@@ -51,7 +51,7 @@ for v in range(nVids):
     
     # load video data
     vidPath = vidPathList[v]
-    Vid = VF.get_video_object(vidPath)
+    Vid = cv2.VideoCapture(vidPath)
     nFrames = int(Vid.get(cv2.CAP_PROP_FRAME_COUNT))
     
     # select reference frame (probably just the first frame)
@@ -63,6 +63,14 @@ for v in range(nVids):
     mask, boundary = IPF.make_polygon_mask(refFrame)
     refFrame = IPF.mask_image(refFrame, mask)
     
+    # project image onto average color of inner stream
+    # average color
+    cAve = np.array([np.mean(refFrame[:,:,i]) for i in range(len(refFrame.shape))])
+    # normalize
+    cAve /= np.linalg.norm(cAve)
+    # project reference frame
+    refProj = IPF.project_im(refFrame, cAve)
+    
     # loop through video frames
     nFrames = 10
     offset = 1270     
@@ -71,18 +79,21 @@ for v in range(nVids):
         print('Now showing frame #' + str(f))
         # image subtraction
         frame = IPF.mask_image(VF.extract_frame(Vid,f),mask)
+        # project frame
+        proj = IPF.project_im(frame, cAve)
         # darker image must be second or else change will be 0
-        subtIm = cv2.subtract(refFrame, frame)
-        # process image
-        subtIm = IPF.scale_brightness(subtIm)
+        deltaIm = IPF.scale_brightness(cv2.absdiff(refProj, proj))
         # threshold
-        threshIm = IPF.threshold_im(subtIm, thresh, c=1)
-        threshIm = cv2.cvtColor(threshIm,cv2.COLOR_GRAY2RGB)
+        threshIm = IPF.threshold_im(deltaIm, thresh)
+#        threshIm = cv2.cvtColor(threshIm,cv2.COLOR_GRAY2RGB)
         # display image
-        twoIms = np.concatenate((threshIm, subtIm), axis=1)
+        twoIms = np.concatenate((deltaIm, threshIm), axis=1)
         cv2.imshow(windowName, twoIms)
         # waits for allotted number of milliseconds
         k = cv2.waitKey(waitMS)
         # pauses if any key is clicked
         if k != -1:
             break
+        
+#Vid.release()
+#cv2.destroyAllWindows()

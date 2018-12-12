@@ -543,6 +543,12 @@ def mask_image(image,mask):
     return maskedImage
 
 
+def project_im(im, color):
+    """
+    Projects the given 3D image array onto the given color.
+    """
+    return (np.tensordot(im, color, axes=([2,0]))).astype('uint8')
+
 def reduce_mask_radius(maskData,fraction):
     """
     Reduce the radius of the mask that covers the outer edge of the disk to the
