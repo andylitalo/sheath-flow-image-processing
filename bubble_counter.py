@@ -33,7 +33,7 @@ checkMask = True
 # Processing
 # dimensions of structuring element (pixels, pixels)
 selem = skimage.morphology.disk(8)
-thresh = 10 # threshold for identifying bubbles
+thresh = 8 # threshold for identifying bubbles
 minSize = 20 # minimum size of object in pixels
 
 # display
@@ -84,6 +84,14 @@ for v in range(nVids):
     # median filter to remove saturated pixels
     refProj = skimage.filters.median(refProj, selem=selem)
     
+    
+    # HSV
+    refHSV = cv2.cvtColor(refFrame, cv2.COLOR_BGR2HSV)
+    # value
+    refValue = refHSV[:,:,2]
+    # filter
+    refValue = skimage.filters.median(refValue, selem=selem).astype('uint8')
+    
     # loop through video frames   
     cv2.namedWindow(windowName)
     # initialize bubble count
@@ -92,12 +100,20 @@ for v in range(nVids):
         print('Now showing frame #' + str(f))
         # image subtraction
         frame = IPF.mask_image(VF.extract_frame(Vid,f),mask)
+        frameHSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         # project frame
         proj = IPF.project_im(frame, cAve)
         # median filter to remove saturated pixels
         proj = skimage.filters.median(proj, selem=selem)
+        
+        
+        # HSV
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        value = hsv[:,:,2]
+        # filter
+        value = skimage.filters.median(value,selem=selem).astype('uint8')
         # subtract images
-        deltaIm = cv2.absdiff(refProj, proj)
+        deltaIm = cv2.absdiff(refValue, value)
         
         # threshold
         threshIm = IPF.threshold_im(deltaIm, thresh)
@@ -119,7 +135,7 @@ for v in range(nVids):
             
             # display image
             cleanIm = cleanIm.astype('uint8')
-            twoIms = np.concatenate((frame, cv2.cvtColor(IPF.scale_brightness(deltaIm),cv2.COLOR_GRAY2RGB)), axis=1)
+            twoIms = np.concatenate((cv2.cvtColor(threshIm, cv2.COLOR_GRAY2RGB), cv2.cvtColor(IPF.scale_brightness(deltaIm),cv2.COLOR_GRAY2RGB)), axis=1)
             cv2.imshow(windowName, twoIms)
             # waits for allotted number of milliseconds
             k = cv2.waitKey(waitMS)
