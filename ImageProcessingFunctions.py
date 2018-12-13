@@ -192,6 +192,7 @@ def create_polygonal_mask_data(im,maskFile):
     # store mask data
     maskData = {}
     maskData['mask'] = mask
+    maskData['points'] = points
     # save new mask
     with open(maskFile,'wb') as f:
         pkl.dump(maskData, f)

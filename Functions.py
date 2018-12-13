@@ -339,6 +339,28 @@ def generate_ellipse(R1,R2,center,theta,N=100):
     y = R1*np.cos(t)*np.sin(theta) + R2*np.sin(t)*np.cos(theta) + center[1]
     return x,y
     
+
+def get_file_name_from_path(filePath):
+    """
+    Returns just the file name, no folder headings.
+    """
+    iFolderSep = find_substring('\\',filePath)
+    iLast = iFolderSep[-1]
+    # extract characters 2 after last '\\' (1 to account for length of '\\')
+    fileName = filePath[iLast+1:]
+    
+    return fileName
+ 
+def find_substring(substr,string):
+    """
+    Finds the indices for given substring.
+    """
+    lSub = len(substr)
+    l = len(string)
+    inds = [i for i in range(l-lSub+1) if string[i:i+lSub]==substr]
+    
+    return inds
+
 def plot_circles(R,center,N=15):
     """
     Plot a set of concentric circles on an existing plot where the outermost

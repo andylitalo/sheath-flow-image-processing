@@ -168,18 +168,17 @@ def get_polygonal_mask_data(im,maskFile,check=False):
         plt.figure('Evaluate accuracy of predrawn masks for your video')
         maskedImage = IPF.mask_image(im,maskData['mask'])
         plt.imshow(maskedImage)
-
-        response = messagebox.askyesno('Do you wish to keep' + \
-                            ' the current mask?','User Input Required')
+        # ask if user wishes to keep current mask (header, question)
+        response = messagebox.askyesno('User Input Required', 'Do you wish to keep' + \
+                            ' the current mask?')
         plt.close()
         if response:
             return maskData
 
         else:
             print('Existing mask rejected, please create new one now.')
-            maskData = IPF.create_rect_mask_data(im,maskFile)
+            maskData = IPF.create_polygonal_mask_data(im,maskFile)
 
-    print('finished get_polygonal_mask_data')
     return maskData
 
 
