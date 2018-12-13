@@ -43,16 +43,21 @@ checkMask = True
 # dimensions of structuring element (pixels, pixels)
 selem = skimage.morphology.disk(8)
 nRefFrame = 0 # frame number of reference/background frame for im subtraction
-thresh = 7 # threshold for identifying bubbles, currently heuristics
-minSize = 20 # minimum size of object in pixels
-skip = 10 # number of frames to jump (1 means analyze every frame)
-startFrame = 180
+thresh = 6 # threshold for identifying bubbles, currently heuristic
+minSize = 30 # minimum size of object in pixels
+skip = 1 # number of frames to jump (1 means analyze every frame)
+startFrame = 190
+nPixBlurRef = 20
+nPixBlur = 5
 
 # display
-updatePeriod = 1000 # update with printout every given number of frames
-showResults = False
+updatePeriod = 1 # update with printout every given number of frames
+showResults = True
 windowName = 'Video'
-waitTime = 10 # milliseconds to wait between frames
+waitTime = 100 # milliseconds to wait between frames
+
+# saving
+saveResults = False
 
 
 ###############################################################################
@@ -79,10 +84,12 @@ for v in range(nVids):
     
     # create mask or load from video folder
     maskFile = vidFolder + vidFileName[:-4] + '.pkl'
-    maskData = UIF.get_polygonal_mask_data(cv2.cvtColor(refFrame, cv2.COLOR_BGR2RGB), maskFile, check=checkMask)
-    mask = maskData['mask']
+    maskData = UIF.get_polygonal_mask_data(
+            cv2.cvtColor(refFrame, cv2.COLOR_BGR2RGB), 
+            maskFile, check=checkMask)
+    mask = maskData['mask']  
     # mask image
-    refFrame = IPF.mask_image(refFrame, mask)   
+    refFrame = IPF.mask_image(refFrame, mask)
     
     # Convert reference frame to HSV
     refHSV = cv2.cvtColor(refFrame, cv2.COLOR_BGR2HSV)
@@ -90,6 +97,7 @@ for v in range(nVids):
     refValue = refHSV[:,:,2]
     # filter
     refValue = skimage.filters.median(refValue, selem=selem).astype('uint8')
+#    refValue = IPF.float2uint8(skimage.filters.gaussian(refValue, sigma=nPixBlurRef)) 
 
     # prepare to loop through frames 
     # create window to watch results if desired
@@ -113,16 +121,24 @@ for v in range(nVids):
             print('Now showing frame #' + str(f))
             print('Number of bubbles seen so far = ' + str(nBubbles))
             print('Time elapsed for current video = ' + str(time.time()-startTime))
+            
         
         # load current frame
         # image subtraction
-        frame = IPF.mask_image(VF.extract_frame(Vid,f),mask)
+        frame = IPF.mask_image(VF.extract_frame(Vid,f), mask)
         # convert to HSV
         frameHSV = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         # extract "value" channel, which is similar to the intensity
         value = frameHSV[:,:,2]
         # filter
+#        value = IPF.float2uint8(skimage.filters.gaussian(value, sigma=nPixBlur))
+        
+        #
+#        print('Average pixel intensity = ' + str(np.mean(value)))
+        
+        # filter
         value = skimage.filters.median(value,selem=selem).astype('uint8')
+        
         
         # identify bubbles
         # TODO debug, replace following lines of code
@@ -149,6 +165,7 @@ for v in range(nVids):
         nNewBubbles = nBubblesInFrame[f]-nBubblesInFrame[max(f-skip,0)]
         # save frames with new bubbles
         if nNewBubbles > 0:
+            nBubbles += nNewBubbles
             bubbleFramesList += [f]
         
         # display frames in real time during processing
@@ -156,7 +173,7 @@ for v in range(nVids):
             # create RGB image of labeled objects
             labeledIm = skimage.color.label2rgb(label, bubblesIm)
             # 
-            twoIms = np.concatenate((cv2.cvtColor(threshIm, cv2.COLOR_GRAY2RGB), cv2.cvtColor(IPF.scale_brightness(deltaIm),cv2.COLOR_GRAY2RGB)), axis=1)
+            twoIms = np.concatenate((cv2.cvtColor(value, cv2.COLOR_GRAY2RGB), cv2.cvtColor(IPF.scale_brightness(deltaIm),cv2.COLOR_GRAY2RGB)), axis=1)
             cv2.imshow(windowName, twoIms)
             # waits for allotted number of milliseconds
             k = cv2.waitKey(waitTime)
@@ -172,13 +189,14 @@ for v in range(nVids):
     
     # save data
     # TODO save data file for all videos processed (combined)
-    data2Save = {}
-    data2Save['frames with bubbles'] = bubbleFramesList
-    data2Save['bubbles in frame'] = nBubblesInFrame
-    data2Save['number of bubbles'] = nBubbles
-    data2Save['skip'] = skip
-    # create data path for saving data
-    saveDataPath = vidPath[:-4] + '_data.pkl'
-    # save list of frames with bubbles
-    with open(saveDataPath, 'wb') as f:
-        pkl.dump(data2Save, f)
+    if saveResults:
+        data2Save = {}
+        data2Save['frames with bubbles'] = bubbleFramesList
+        data2Save['bubbles in frame'] = nBubblesInFrame
+        data2Save['number of bubbles'] = nBubbles
+        data2Save['skip'] = skip
+        # create data path for saving data
+        saveDataPath = vidPath[:-4] + '_data.pkl'
+        # save list of frames with bubbles
+        with open(saveDataPath, 'wb') as f:
+            pkl.dump(data2Save, f)
