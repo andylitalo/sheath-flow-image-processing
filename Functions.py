@@ -344,10 +344,15 @@ def get_file_name_from_path(filePath):
     """
     Returns just the file name, no folder headings.
     """
-    iFolderSep = find_substring('\\',filePath)
-    iLast = iFolderSep[-1]
-    # extract characters 2 after last '\\' (1 to account for length of '\\')
-    fileName = filePath[iLast+1:]
+    indsBackslash = find_substring('\\',filePath)
+    # check if there are any folder headings--if not return filepath
+    if not indsBackslash:
+        fileName = filePath
+    else:
+        # get index of last occurrence of backslash
+        iLast = indsBackslash[-1]
+        # extract characters 2 after last '\\' (1 to account for length of '\\')
+        fileName = filePath[iLast+1:]
     
     return fileName
  
@@ -712,7 +717,6 @@ def longest_sequence(crossings, indicator=True):
     lengthSeq = np.max(seqLengths)
     
     return iSeq, lengthSeq
-
 
 def overlapping_gaussians(params, nSigma=2.0):
     """

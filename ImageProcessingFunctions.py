@@ -1084,6 +1084,25 @@ def get_perimeter(wettedArea):
 
     return data
 
+def highlight_bubbles(frame, bkgd, thr, selem=skimage.morphology.disk(5), min_size=20):
+    """
+    Performs background subtraction, thresholding, and cleanup to return black-
+    and-white image of bubbles in frame.
+    """
+    # subtract images
+    deltaIm = cv2.absdiff(frame, bkgd)
+    # threshold
+    thrIm = threshold_im(deltaIm, thr)
+    # smooth out thresholded image
+    closedIm = skimage.morphology.binary_closing(thrIm, selem=selem)
+    # remove small objects
+    bubbles = skimage.morphology.remove_small_objects(closedIm.astype(bool), min_size=min_size)
+    # convert to uint8
+    bubbles = 255*bubbles.astype('uint8')
+    
+    return bubbles
+
+
 def scale_brightness(image):
     """
     Rescales the pixel values of the image such that the highest value is 255
