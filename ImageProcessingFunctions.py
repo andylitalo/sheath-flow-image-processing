@@ -133,16 +133,7 @@ def create_circular_mask(image,R,center):
     mask = get_mask(x,y,np.shape(image))
 
     return mask
-
-
-def make_polygon_mask(image):
-    """
-    Allows user to make polygonal mask for given image and returns mask.
-    """
-    points = UIF.define_outer_edge(image,'polygon',message='click vertices')
-    mask = create_polygon_mask(image, points)
-
-    return mask    
+ 
     
 def create_polygon_mask(image,points):
     """
@@ -180,10 +171,27 @@ def create_rect_mask_data(im,maskFile):
     xyMinMax = np.array([xMin, xMax, yMin, yMax])
     # create mask from vertices
     mask, maskPts = create_polygon_mask(im, maskVertices)
+    print(mask)
     # store mask data
     maskData = {}
     maskData['mask'] = mask
     maskData['xyMinMax'] = xyMinMax
+    # save new mask
+    with open(maskFile,'wb') as f:
+        pkl.dump(maskData, f)
+
+    return maskData
+
+def create_polygonal_mask_data(im,maskFile):
+    """
+    create mask for an image and save as pickle file
+    """
+    # create mask
+    points = UIF.define_outer_edge(im,'polygon',message='click vertices')
+    mask, points = create_polygon_mask(im, points)
+    # store mask data
+    maskData = {}
+    maskData['mask'] = mask
     # save new mask
     with open(maskFile,'wb') as f:
         pkl.dump(maskData, f)

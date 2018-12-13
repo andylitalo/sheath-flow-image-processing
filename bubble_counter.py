@@ -23,21 +23,23 @@ import glob
 
 ###############################################################################
 # USER PARAMETERS
-# Video
+# Data
 # folder containing the video to be processed
 vidFolder = '..\\..\\Videos\\'
 # name of the video file
 vidFile = 'glyc_co2_1057fps_238us_7V_0200_6-5bar_141mm.mp4'
+checkMask = True
 
 # Processing
 # dimensions of structuring element (pixels, pixels)
-selem = skimage.morphology.disk(10)
-thresh = 127 # threshold for identifying bubbles
+selem = skimage.morphology.disk(8)
+thresh = 10 # threshold for identifying bubbles
 minSize = 20 # minimum size of object in pixels
 
 # display
+showResults = True
 windowName = 'Video'
-waitMS = 1000 # milliseconds to wait between frames
+waitMS = 10 # milliseconds to wait between frames
 
 
 ###############################################################################
@@ -48,6 +50,9 @@ vidPath = os.path.join(vidFolder + vidFile)
 vidPathList = glob.glob(vidPath)
 nVids = len(vidPathList)
 
+# initialize array to store counts of bubbles
+nBubblesArr = np.zeros(nVids)
+
 # loop through videos
 for v in range(nVids):
     
@@ -56,13 +61,17 @@ for v in range(nVids):
     Vid = cv2.VideoCapture(vidPath)
     nFrames = int(Vid.get(cv2.CAP_PROP_FRAME_COUNT))
     
+    
     # select reference frame (probably just the first frame)
     nRefFrame = 0
     refFrame = VF.extract_frame(Vid,nRefFrame)
     # filter frame using mean filter
     refFrame = IPF.mean_filter(refFrame, selem)
-    # create mask from reference frame
-    mask, boundary = IPF.make_polygon_mask(refFrame)
+    # create mask or load from video folder
+    maskFile = vidFolder + vidFile[:-4] + '.pkl'
+    maskData = UIF.get_polygonal_mask_data(refFrame, maskFile, check=checkMask)
+    mask = maskData['mask']
+    # mask image
     refFrame = IPF.mask_image(refFrame, mask)
     
     # project image onto average color of inner stream
@@ -72,52 +81,54 @@ for v in range(nVids):
     cAve /= np.linalg.norm(cAve)
     # project reference frame
     refProj = IPF.project_im(refFrame, cAve)
+    # median filter to remove saturated pixels
+    refProj = skimage.filters.median(refProj, selem=selem)
     
-    # loop through video frames
-    nFrames = 10
-    offset = 1270     
+    # loop through video frames   
     cv2.namedWindow(windowName)
     # initialize bubble count
     nBubbles = 0
-    for f in range(offset, offset + nFrames):
+    for f in range(1270,1290):#nFrames):
         print('Now showing frame #' + str(f))
         # image subtraction
         frame = IPF.mask_image(VF.extract_frame(Vid,f),mask)
         # project frame
         proj = IPF.project_im(frame, cAve)
+        # median filter to remove saturated pixels
+        proj = skimage.filters.median(proj, selem=selem)
         # subtract images
-        deltaIm = IPF.scale_brightness(cv2.absdiff(refProj, proj))
+        deltaIm = cv2.absdiff(refProj, proj)
         
         # threshold
         threshIm = IPF.threshold_im(deltaIm, thresh)
         # smooth out thresholded image
-        # close bubble
-        # TODO: something's wrong here************8
-        closed = skimage.morphology.binary_closing(threshIm, selem=selem)
-        # fill holes
-        filled = ndimage.morphology.binary_fill_holes(closed)
-        # remove fringes
-        noFringe = skimage.morphology.binary_opening(filled, selem=selem)
+        closedIm = skimage.morphology.binary_closing(threshIm, selem=selem)
         # remove small objects
-        cleanIm = skimage.morphology.remove_small_objects(noFringe, min_size=minSize)
-        
+        cleanIm = skimage.morphology.remove_small_objects(closedIm.astype(bool), min_size=minSize)
+        # convert to uint8
+        cleanIm = 255*cleanIm.astype('uint8')
         # label remaining objects
         label, nObj = skimage.measure.label(cleanIm, return_num=True)
         # update count
         nBubbles += nObj
         
-        # create RGB image of labeled objects
-        labeledIm = skimage.color.label2rgb(label, cleanIm)
+        # display frames in real time during processing
+        if showResults:
+            # create RGB image of labeled objects
+            labeledIm = skimage.color.label2rgb(label, cleanIm)
+            
+            # display image
+            cleanIm = cleanIm.astype('uint8')
+            twoIms = np.concatenate((frame, cv2.cvtColor(IPF.scale_brightness(deltaIm),cv2.COLOR_GRAY2RGB)), axis=1)
+            cv2.imshow(windowName, twoIms)
+            # waits for allotted number of milliseconds
+            k = cv2.waitKey(waitMS)
+            # pauses if any key is clicked
+            if k != -1:
+                break
         
-        # display image
-        cleanIm = cleanIm.astype('uint8')
-        twoIms = np.concatenate((cv2.cvtColor(threshIm,cv2.COLOR_GRAY2RGB), cv2.cvtColor(closed.astype('uint8'),cv2.COLOR_GRAY2RGB)), axis=1)
-        cv2.imshow(windowName, twoIms)
-        # waits for allotted number of milliseconds
-        k = cv2.waitKey(waitMS)
-        # pauses if any key is clicked
-        if k != -1:
-            break
-        
-#Vid.release()
-#cv2.destroyAllWindows()
+    # free memory of loaded video
+    Vid.release()
+    # store number of bubbles counted
+    nBubblesArr[v] = nBubbles
+    print('Number of bubbles for video ' + str(vidPath) + ' is ' + str(nBubbles))

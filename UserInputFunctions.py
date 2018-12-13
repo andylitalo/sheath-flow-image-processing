@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle as pkl
 
+from tkinter import messagebox
+
 #Custom modules
 import Functions as Fun
 import ImageProcessingFunctions as IPF
@@ -148,6 +150,36 @@ def get_rect_mask_data(im,maskFile,check=False):
             print('Existing mask rejected, please create new one now.')
             maskData = IPF.create_rect_mask_data(im,maskFile)
 
+    return maskData
+
+def get_polygonal_mask_data(im,maskFile,check=False):
+    """
+    Shows user masks overlayed on given image and asks through a dialog box
+    if they are acceptable. Returns True for 'yes' and False for 'no'.
+    """
+    try:
+        with open(maskFile, 'rb') as f:
+            maskData = pkl.load(f)
+    except:
+        print('Mask file not found, please create it now.')
+        maskData = IPF.create_polygonal_mask_data(im,maskFile)
+
+    while check:
+        plt.figure('Evaluate accuracy of predrawn masks for your video')
+        maskedImage = IPF.mask_image(im,maskData['mask'])
+        plt.imshow(maskedImage)
+
+        response = messagebox.askyesno('Do you wish to keep' + \
+                            ' the current mask?','User Input Required')
+        plt.close()
+        if response:
+            return maskData
+
+        else:
+            print('Existing mask rejected, please create new one now.')
+            maskData = IPF.create_rect_mask_data(im,maskFile)
+
+    print('finished get_polygonal_mask_data')
     return maskData
 
 
