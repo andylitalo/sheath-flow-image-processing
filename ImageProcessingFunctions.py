@@ -1084,12 +1084,28 @@ def get_perimeter(wettedArea):
 
     return data
 
-def float2uint8(im):
+def float2uint8(im, subtMin=True):
     """
     Converts float image scaled from 0 to 1 (like output of skimage's gaussian
     filter) to a 255-scale uint8 image.
     """
+    # scale brightness by subtracting minimum to go from 0 to 1
+    if subtMin:
+        im = (im - im.min()) / (im.max() - im.min())
     return (255*im).astype('uint8')
+
+def uint82float(im, subtMin=True):
+    """
+    Converts uint8 image scaled from 0 to 255 to an image of floats scaled from
+    0 to 1, which is used in scipy.ndimage.filters. subtMin subtracts the minimum
+    value to scale the image as much as possible.
+    """
+    if subtMin:
+        result = (im.astype(float) - im.min()) / (im.max() - im.min())
+    else:
+        result = im.astype(float)/255.0
+    
+    return result
 
 def highlight_bubbles(frame, bkgd, thr, selem=skimage.morphology.disk(5), min_size=20):
     """
