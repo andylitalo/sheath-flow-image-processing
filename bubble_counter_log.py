@@ -37,26 +37,29 @@ import time
 # folder containing the video to be processed
 vidFolder = '..\\..\\Videos\\'
 # name of the video file
-vidFileStr = 'glyc_co2_1057fps_941us_8V_0200_6bar_22-5mm.mp4'
-checkMask = True
+vidFileStr = 'glyc_co2_1057fps_89us_10V_0250_16bar_79mm_4x.mp4'
+checkMask = False
 
 # Processing
 # dimensions of structuring element (pixels, pixels)
 selem = skimage.morphology.disk(8)
 nRefFrame = 0 # frame number of reference/background frame for im subtraction
-thresh = 6 # threshold for identifying bubbles, currently heuristic
+#thresh = 215 # threshold for identifying bubbles, currently heuristic
+logThresh = 0.016
 minSize = 30 # minimum size of object in pixels
 skip = 1 # number of frames to jump (1 means analyze every frame)
-startFrame = 190
+startFrame = 320
 nPixBlurRef = 20
 nPixBlur = 5
 sigmaLOG = 3 # sigma of laplacian of gaussian
+sizeErode = 6 # pixels to erode from mask to remove stuff along boundary of mask
 
 # display
 updatePeriod = 1 # update with printout every given number of frames
 showResults = True
 windowName = 'Video'
 waitTime = 100 # milliseconds to wait between frames
+screenWidth = 1920 # number of pixels across of my screen
 
 # saving
 saveResults = False
@@ -104,7 +107,7 @@ for v in range(nVids):
     # prepare to loop through frames 
     # create window to watch results if desired
     if showResults:   
-        cv2.namedWindow(windowName)
+        cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
     # initialize bubble count
     nBubbles = 0
     nBubblesCurr = 0
@@ -144,11 +147,18 @@ for v in range(nVids):
         deltaIm = cv2.absdiff(refValue, value)
         
         # find edges
-        deltaIm = IPF.float2uint8(scipy.ndimage.filters.gaussian_laplace(IPF.uint82float(deltaIm), sigmaLOG) )     
+        imLOG = scipy.ndimage.filters.gaussian_laplace(IPF.uint82float(deltaIm), sigmaLOG)
 
-
+        # remove borders by eroding masking
+        # remove objects along edge of mask by "eroding" the mask
+        maskEroded = IPF.erode_mask(mask, size=sizeErode)
+        clearedEdgeLOG = IPF.mask_image(imLOG, maskEroded)
+        
+        # threshold the laplacian of gaussian (negative makes dark spots show up bright)
+        threshIm = (-clearedEdgeLOG > logThresh)
+#        log = IPF.float2uint8(-clearedEdgeLOG, subtMin=False) 
         # threshold
-        threshIm = IPF.threshold_im(deltaIm, thresh)
+#        threshIm = IPF.threshold_im(log, thresh)
         # smooth out thresholded image
         closedIm = skimage.morphology.binary_closing(threshIm, selem=selem)
         # remove small objects
@@ -173,9 +183,25 @@ for v in range(nVids):
         if showResults:
             # create RGB image of labeled objects
             labeledIm = skimage.color.label2rgb(label, bubblesIm)
-            # IPF.scale_brightness(deltaIm)
-            twoIms = np.concatenate((cv2.cvtColor(deltaIm, cv2.COLOR_GRAY2RGB), cv2.cvtColor(value,cv2.COLOR_GRAY2RGB)), axis=1)
-            cv2.imshow(windowName, twoIms)
+            # choose images
+            im1 = frame 
+            im2 = cv2.cvtColor(IPF.scale_brightness(imLOG), cv2.COLOR_GRAY2RGB)
+            im3 = cv2.cvtColor(IPF.float2uint8(clearedEdgeLOG),cv2.COLOR_GRAY2RGB)
+            im4 = cv2.cvtColor(bubblesIm, cv2.COLOR_GRAY2RGB)
+            # resize images
+            height = im1.shape[0]
+            width = im1.shape[1]
+            imSize = (int(height*width/(screenWidth/2)),int(screenWidth/2))
+            im1 = cv2.resize(im1, imSize)
+            im2 = cv2.resize(im2, imSize)
+            im3 = cv2.resize(im3, imSize)
+            im4 = cv2.resize(im4, imSize)
+            # concatenate images
+            topIms = np.concatenate((im1,im2), axis=1)
+            bottomIms = np.concatenate((im3,im4), axis=1)
+            imGrid = np.concatenate((topIms,bottomIms), axis=0)
+            # display images
+            cv2.imshow(windowName, imGrid)
             # waits for allotted number of milliseconds
             k = cv2.waitKey(waitTime)
             # pauses if any key is clicked

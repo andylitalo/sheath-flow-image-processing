@@ -240,14 +240,20 @@ def create_mask_data(image,maskFile):
     return maskData
 
 
-def dilate_mask(mask,size=6,iterations=2):
+def dilate_mask(mask, size=6, iterations=2):
+    """
+    Deprecated name for "erode_mask"
+    """
+    return erode_mask(mask, size=size, iterations=iterations)
+
+def erode_mask(mask,size=6,iterations=2):
     """
     Increase the size of the masked area by dilating the mask to block
     additional pixels that surround the existing blacked pixels.
     """
     kernel = np.ones((size,size),np.uint8)
     dilation = cv2.erode(np.uint8(mask),kernel,iterations=iterations)
-    mask = (dilation==1)
+    mask = dilation.astype(bool)
 
     return mask
 

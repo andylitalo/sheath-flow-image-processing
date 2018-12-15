@@ -21,6 +21,7 @@ import Functions as Fun
 import skimage.morphology
 import skimage.measure
 import skimage.color
+import skimage.segmentation
 import cv2
 
 import numpy as np
@@ -36,25 +37,26 @@ import time
 # folder containing the video to be processed
 vidFolder = '..\\..\\Videos\\'
 # name of the video file
-vidFileStr = 'glyc_co2_1057fps_941us_8V_0200_6bar_22-5mm.mp4'
-checkMask = True
+vidFileStr = 'glyc_co2_1057fps_89us_10V_0250_16bar_79mm_4x.mp4'
+checkMask = False
 
 # Processing
 # dimensions of structuring element (pixels, pixels)
 selem = skimage.morphology.disk(8)
 nRefFrame = 0 # frame number of reference/background frame for im subtraction
-thresh = 6 # threshold for identifying bubbles, currently heuristic
+thresh = 4 # threshold for identifying bubbles, currently heuristic
 minSize = 30 # minimum size of object in pixels
 skip = 1 # number of frames to jump (1 means analyze every frame)
-startFrame = 190
+startFrame = 320
 nPixBlurRef = 20
 nPixBlur = 5
-
+sizeErode = 6 # number of pixels to erode from mask to remove boundaries
 # display
 updatePeriod = 1 # update with printout every given number of frames
 showResults = True
 windowName = 'Video'
 waitTime = 100 # milliseconds to wait between frames
+screenWidth = 1920
 
 # saving
 saveResults = False
@@ -102,15 +104,17 @@ for v in range(nVids):
     # prepare to loop through frames 
     # create window to watch results if desired
     if showResults:   
-        cv2.namedWindow(windowName)
+        cv2.namedWindow(windowName, cv2.WINDOW_NORMAL)
     # initialize bubble count
-    nBubbles = 0
-    nBubblesCurr = 0
-    nBubblesPrev = 0
+    nBubble = 0
+    nBubbleCurr = 0
+    nBubblePrev = 0
     # save number of bubbles in each frame
-    nBubblesInFrame = np.zeros(nFrames)
-    # initialize list of frames with bubbles
+    nBubbleInFrame = np.zeros(nFrames)
+    # initialize list of numbers of frames with bubbles
     bubbleFramesList = []
+    # initialize list of thresholded images of bubbles
+    bubbleBWList = []
     # keep track of time
     startTime = time.time()
     
@@ -119,7 +123,7 @@ for v in range(nVids):
         # update progress with printouts to console
         if (f%updatePeriod == 0):
             print('Now showing frame #' + str(f))
-            print('Number of bubbles seen so far = ' + str(nBubbles))
+            print('Number of bubbles seen so far = ' + str(nBubble))
             print('Time elapsed for current video = ' + str(time.time()-startTime))
             
         
@@ -142,39 +146,63 @@ for v in range(nVids):
         
         # identify bubbles
         # TODO debug, replace following lines of code
-#        bubblesIm = IPF.highlight_bubbles(value, refValue, thresh, selem=selem,
+#        bubbleIm = IPF.highlight_bubbles(value, refValue, thresh, selem=selem,
 #                                        min_size=minSize)
         # subtract images
         deltaIm = cv2.absdiff(refValue, value)
+        
         # threshold
-        threshIm = IPF.threshold_im(deltaIm, thresh)
+        threshBW = IPF.threshold_im(deltaIm, thresh)
+        # remove objects along edge of mask by "eroding" the mask
+        maskEroded = IPF.erode_mask(mask, size=sizeErode)
+        clearedEdgeBW = IPF.mask_image(threshBW, maskEroded)
         # smooth out thresholded image
-        closedIm = skimage.morphology.binary_closing(threshIm, selem=selem)
+        closedBW = skimage.morphology.binary_closing(clearedEdgeBW, selem=selem)
         # remove small objects
-        bubblesIm = skimage.morphology.remove_small_objects(closedIm.astype(bool), min_size=minSize)
+        bubbleBW = skimage.morphology.remove_small_objects(closedBW.astype(bool), min_size=minSize)
         # convert to uint8
-        bubblesIm = 255*bubblesIm.astype('uint8')
+        bubbleBW = 255*bubbleBW.astype('uint8')
         
         # count bubbles
         # label remaining objects (presumably bubbles)
-        label, nBubblesInFrame[f] = skimage.measure.label(bubblesIm, return_num=True)
+        label, nBubbleInFrame[f] = skimage.measure.label(bubbleBW, return_num=True)
         # update count if a new object is seen in the frame
         # this counting method fails when objects enter and exit frame simultaneously,
         # but this is rare when there are few bubbles
         # max(f-1,0) ensures that when f = 0 there is no error
-        nNewBubbles = nBubblesInFrame[f]-nBubblesInFrame[max(f-skip,0)]
+        nNewBubbles = nBubbleInFrame[f]-nBubbleInFrame[max(f-skip,0)]
         # save frames with new bubbles
         if nNewBubbles > 0:
-            nBubbles += nNewBubbles
+            nBubble += nNewBubbles
             bubbleFramesList += [f]
+            # save cleaned up thresholded frame
+            bubbleBWList += [bubbleBW]
         
         # display frames in real time during processing
         if showResults:
             # create RGB image of labeled objects
-            labeledIm = skimage.color.label2rgb(label, bubblesIm)
-            # 
-            twoIms = np.concatenate((cv2.cvtColor(value, cv2.COLOR_GRAY2RGB), cv2.cvtColor(IPF.scale_brightness(deltaIm),cv2.COLOR_GRAY2RGB)), axis=1)
-            cv2.imshow(windowName, twoIms)
+            labeledIm = skimage.color.label2rgb(label, bubbleBW)
+            # IPF.scale_brightness(deltaIm)
+            # choose images
+            im1 = frame 
+            im2 = cv2.cvtColor(clearedEdgeBW, cv2.COLOR_GRAY2RGB)
+            im3 = cv2.cvtColor(IPF.scale_brightness(deltaIm), cv2.COLOR_GRAY2RGB)
+            im4 = cv2.cvtColor(bubbleBW, cv2.COLOR_GRAY2RGB)
+            # resize images
+            height = im1.shape[0]
+            width = im1.shape[1]
+            imSize = (int(height*width/(screenWidth/2)),int(screenWidth/2))
+            im1 = cv2.resize(im1, imSize)
+            im2 = cv2.resize(im2, imSize)
+            im3 = cv2.resize(im3, imSize)
+            im4 = cv2.resize(im4, imSize)
+            # concatenate images
+            topIms = np.concatenate((im1,im2), axis=1)
+            bottomIms = np.concatenate((im3,im4), axis=1)
+            imGrid = np.concatenate((topIms,bottomIms), axis=0)
+            # display images
+            cv2.imshow(windowName, imGrid)
+            
             # waits for allotted number of milliseconds
             k = cv2.waitKey(waitTime)
             # pauses if any key is clicked
@@ -185,15 +213,16 @@ for v in range(nVids):
     Vid.release()
     
     # report number of bubbles seen in video
-    print('Number of bubbles for video ' + str(vidPath) + ' is ' + str(nBubbles))
+    print('Number of bubbles for video ' + str(vidPath) + ' is ' + str(nBubble))
     
     # save data
     # TODO save data file for all videos processed (combined)
     if saveResults:
         data2Save = {}
         data2Save['frames with bubbles'] = bubbleFramesList
-        data2Save['bubbles in frame'] = nBubblesInFrame
-        data2Save['number of bubbles'] = nBubbles
+        data2Save['bw bubble images'] = bubbleBWList
+        data2Save['bubbles in frame'] = nBubbleInFrame
+        data2Save['number of bubbles'] = nBubble
         data2Save['skip'] = skip
         # create data path for saving data
         saveDataPath = vidPath[:-4] + '_data.pkl'
